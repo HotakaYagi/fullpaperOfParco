@@ -34,7 +34,7 @@
 \address[B]{ University of Tsukuba, Japan}
 
 \begin{abstract}
-MuPAT, an interactive multiple precision arithmetic toolbox for use on MATLAB and Scilab enables the users to treat quadruple and octuple precision arithmetics. MuPAT uses DD and QD algorithm that require from 10 to 600 double precision floating-point operations for each operation. That causes taking much time for computation. In order to reduce the execution time in basic matrix and vector operations, FMA, AVX2 and OpenMP are used. We applied these features to MuPAT using the function of MATLAB executable file, and analyzed the performance. Using AVX2 and OpenMP to unit stride memory references and to avoid synchlonization can increase the performance of DD operations. We confirm that the effectiveness of AVX2 and OpenMP is depending on the operational intensity. 
+MuPAT, an interactive multiple precision arithmetic toolbox for use on MATLAB and Scilab enables the users to treat quadruple and octuple precision arithmetics. MuPAT uses DD and QD algorithm that require from 10 to 600 double precision floating-point operations for each operation. That causes taking much time for computation. In order to reduce the execution time in basic matrix and vector operations, FMA, AVX2 and OpenMP are used. We applied these features to MuPAT using the function of MATLAB executable file, and analyzed the performance. Using AVX2 and OpenMP to unit stride memory references and to avoid synchronization can increase the performance of DD operations. We confirm that the effectiveness of AVX2 and OpenMP is depending on the operational intensity. 
 \end{abstract}
 \begin{keyword}
 Double-Double\sep Quad-Double\sep MATLAB\sep  AVX2\sep Multicore
@@ -43,10 +43,10 @@ Double-Double\sep Quad-Double\sep MATLAB\sep  AVX2\sep Multicore
 \section{Introduction}
 
 In floating-point arithmetic, rounding error is unavoidable. The accumulation of rounding errors leads to unreliable and inaccurate results. One of the ways to reduce the rounding errors is the use of high-precision arithmetic.  
-Most of high-precision arithmetics are accomplished by software emulation such as QD library\cite{QD}. 
+Most of high-precision arithmetics are accomplished by software emulation such as QD library \cite{QD}. 
 
-Our team developed $MuPAT$, an open-source interactive $Multiple$ $Precision$ $Arithmetic$ $Toolbox$\cite{saito, hota} for use with the MATLAB and Scilab computing environments. MuPAT uses DD (Double-Double)\cite{DD} and QD (Quad-Double)\cite{QD,DD} algorithms which are based on the combination of double precision arithmetic, and excessively long computation times often result. 
-DD and QD arithmetics are possible to accelerate by applying FMA\cite{SIMD}, AVX2\cite{SIMD}, and OpenMP\cite{omp}. A floating-point multiply-add operation is performed in one step with a single rounding by FMA, four double precisions of data are processed at once with AVX2 instruction, and OpenMP enables thread level parallelism in a shared memory. 
+Our team developed $MuPAT$, an open-source interactive $Multiple$ $Precision$ $Arithmetic$ $Toolbox$ \cite{saito, hota} for use with the MATLAB and Scilab computing environments. MuPAT uses DD (Double-Double) \cite{DD} and QD (Quad-Double) \cite{QD,DD} algorithms which are based on the combination of double precision arithmetic, and excessively long computation times often result. 
+DD and QD arithmetics are possible to accelerate by applying FMA \cite{SIMD}, AVX2 \cite{SIMD}, and OpenMP \cite{omp}. A floating-point multiply-add operation is performed in one step with a single rounding by FMA, four double precisions of data are processed at once with AVX2 instruction, and OpenMP enables thread-level parallelism in a shared memory. 
 We implement the combination of these features, and precisely examine some basic matrix and vector operations for DD arithmetic. 
 
 
@@ -54,11 +54,11 @@ We implement the combination of these features, and precisely examine some basic
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{DD Arithmetic}
 
-DD (Double-Double) arithmetic\cite{DD} is based on the algorithm that enables qusai quadruple precision arithmetic.
+DD (Double-Double) arithmetic \cite{DD} is based on the algorithm that enables quasi quadruple precision arithmetic.
 A DD number is defined by two double precision numbers. A DD vector is defined by two vectors with structure of arrays.
 DD algorithm requires 10 to 30 of double precision operations for each operation and has data dependency of flow, i.e. the order of computation must be kept. The accuracy of this algorithm consists of the order of the computation. 
 
-DD multiplication algorithm\cite{QD} can utilize FMA (Fused Multiply-Add). 
+DD multiplication algorithm \cite{QD} can utilize FMA (Fused Multiply-Add). 
 FMA is a floating-point units that can execute double precision multiply-and-add operation in one instruction. Since a double precision multiply-and-add operation is performed in one step via a single rounding FMA instructions, the rounding error is reduced. 
 The algorithms for DD addition and multiplication are shown in Figure \ref{fig1}.
 
@@ -72,7 +72,7 @@ $fl(a\times b+c)$ means FMA.}
 \end{figure}
 
 The number of floating-point operations for DD multiplication is 7 with FMA and 24 without FMA.
-That for DD addition is 11. DD addition in Figure \ref{fig1} is called Cray-style\cite{ichi}. Highly accurate, but more costed (20 times of floating-point operations) algorithm is called IEEE-style\cite{ichi}. Cray-style is mainly used, because it is faster\cite{DDBLAS}. 
+That for DD addition is 11. DD addition in Figure \ref{fig1} is called Cray-style \cite{ichi}. Highly accurate, more expensive (20 times of floating-point operations) algorithm is called IEEE-style \cite{ichi}. Cray-style is mainly used, because it is faster \cite{DDBLAS}. 
 
 We measured the execution time of DD multiplication and multiply-and-add that are repeated $10^7$ times using FMA.
 We used Intel Core i7 7820HQ, 2.9 GHz CPU and Intel compiler 18.0.3 with options -O2, -fma, -mavx, -fopenmp, and -fp-model precise. 
@@ -85,19 +85,19 @@ The execution time of DD multiplication is 0.018 sec, and that of multiply-and-a
 Since the order of computation in DD arithmetic can not be changed, we consider to process multiple data simultaneously for parallelization.
 The unit time of one operation is not changed, but if multiple results can be obtained in one unit time, then the total execution time is reduced.
 We examine to accelerate for basic matrix and vector operations.
-AVX2 instructions\cite{SIMD} can perform the single instruction for four double precision of data. The computational performance increases four times, not the memory performance.
-OpenMP\cite{omp} can be used for a multicore environment. The memory performance and the computational performance per each core do not change, but it enables to process using multicore. For nested-loop operations, we should discuss which loops to parallelize. 
+AVX2 instructions \cite{SIMD} can perform the single instruction for four double precision of data. The computational performance increases four times, not the memory performance.
+OpenMP \cite{omp} can be used for a multicore environment. The memory performance and the computational performance per each core do not change, but it enables to process using multicore. For nested-loop operations, we should discuss which loops to parallelize. 
 %Note that the performance (= the number of floating-point operations / execution time [Gflops/sec]) is distinguished between the computational performance [Gflops/sec] and memory performance [Gbytes/sec].
 
-We assume the memory references should be the column order, since MATLAB stores data in column wise. Unit stride memory reference can use the data read by cache line of length of 64 bytess; however, when reading data $N$-stride ($N$ is longer than the length of cache line), each data is read from memory to the register\cite{HPC}. 
+We assume the memory references should be the column order, since MATLAB stores data in column wise. Unit stride memory reference can use the data read by cache line of length of 64 bytes; however, when reading data $N$-stride ($N$ is longer than the length of cache line), each data is read from memory to the register \cite{HPC}. 
 %When this is used for unit stride memory references, data transfer between cache and register can be reduced. Although it is slightly faster than utlizing cache line, the speedup for memory references is small. 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The performance (= the number of floating-point operations / the execution time [Gflops/sec]) is determined by the memory performance [Gbytes/sec] and the computational performance [Gflops/sec].
-For experiment environment, in the case of single core, the peak computational performance is 5.8 Gflops/sec because there are two FPUs. It increases to 23.2 Gflops/sec by using AVX2. In the case of four cores with AVX2, it is 92.8 Gflops/sec.
+For the experiment environment, in the case of single core, the peak computational performance is 5.8 Gflops/sec because there are two FPUs. It increases to 23.2 Gflops/sec by using AVX2. In the case of four cores with AVX2, it is 92.8 Gflops/sec.
 The peak memory performance is 34.1 Gbytes/sec, because LPDDR3-2133 can handle 8-bytes data with 2,133 MHz of memory clock frequency and two channels. 
 
-Table \ref{opeData} shows the number of floating-point operations, memory references and operational intensity\cite{roof} which is floating-point operations per memory references. By comparing the ratio of the computational performance for the memory performance and operational intensity, the bottleneck of the application can be predicted\cite{roof}. When operational intensity is higher than 0.17 flops/bytes (5.8/34.1) for single core processing, the execution time is bounded on the time for computation. When lower than 0.17, the execution time is bounded on the time for data transfer. 
+Table \ref{opeData} shows the number of floating-point operations, memory references and operational intensity \cite{roof} which is floating-point operations per memory references. By comparing the ratio of the computational performance for the memory performance and operational intensity, the bottleneck of the application can be predicted \cite{roof}. When operational intensity is higher than 0.17 flops/bytes (5.8/34.1) for single core processing, the execution time is bounded on the time for computation. When lower than 0.17, the execution time is bounded on the time for data transfer. 
 In processing of a single core without parallelization, the problem of DD arithmetic is not the number of memory references, but the number of floating-point operations, as shown in Table \ref{opeData}.
 
 \begin{table}[htbp]
@@ -130,7 +130,7 @@ The performance of $\alpha = \bm{x}'\bm{x}$ is 27 Gflops/sec, which having half 
 When using AVX2 and OpenMP, the data supply cannot catch up. 
 Since both inner products are bounded on the computational performance, they have the same tendency of the performance as 2.32 Gflops/sec for serial computing, 8.68 Gflops/sec for AVX2, and 8.42 Gflops/sec for OpenMP in Figure \ref{xdot}.
 %The performance levels is 15\% (14.08/92.8) that is lower than the target of 65\% due to memory references.
-For memory bounded operations, the upper bound of performance can be predicted by the roofline model\cite{roof}. The upper bound is the product of memory performance and operational intensity in Table \ref{opeData}, i.e. the performance levels is 74\% (14.08/(34.1*0.56)). When using memory performance of Copy (= 26.67 Gbytes/sec) by the STREAM benchmark instead of peak memory performance, the performance levels is 94\% (14.08/(26.67*0.56)).
+For memory bounded operations, the upper bound of performance can be predicted by the roofline model \cite{roof}. The upper bound is the product of memory performance and operational intensity in Table \ref{opeData}, i.e. the performance levels is 74\% (14.08/(34.1*0.56)). When using memory performance of Copy (= 26.67 Gbytes/sec) by the STREAM benchmark instead of peak memory performance, the performance levels is 94\% (14.08/(26.67*0.56)).
 
 \begin{figure}[htbp]
   \begin{center}
@@ -156,7 +156,7 @@ Since the operational intensity of IEEE-style is higher than that of Cray-style,
 
 \subsection{DD Matrix-Vector Multiplication}
 $y_{i} = \sum a_{i,j}x_{j}$ indicates the matrix-vector multiplication. 
-Matrix-vector multiplication can be implemented in two ways whether reading memory is in the row order or column order. The algorithm is differed, as shown in Figure \ref{figimpAVX} of PDOT and PB. We use letter P to represent the shape of Panel, and letter B to represent the shape of Block\cite{goto}. Hereafter, the loops in the program is called first, second, and third from the innermost.
+Matrix-vector multiplication can be implemented in two ways whether reading memory is in the row order or column order. The algorithm is differed, as shown in Figure \ref{figimpAVX} of PDOT and PB. We use letter P to represent the shape of Panel, and letter B to represent the shape of Block \cite{goto}. Hereafter, the loops in the program is called first, second, and third from the innermost.
 \subsubsection{AVX2}
 Since matrix-vector multiplication has nested loops, we should consider the way to use AVX2. The four ways of using AVX2 are shown in Figure \ref{figimpAVX}. Letter {\it v} means vector and letter {\it s} means scalar. 
 
@@ -337,8 +337,8 @@ Since FMA can reduce the number of floating-point operations, we assume to use F
 %For vector addition and scalar multiplication of vector, the operational intensities are low and the performance is not increased. Operational intensity of inner product is higher than these two vector operations and the performance levels become almost the upper bound of roofline model.
 For matrix-vector multiplication and matrix multiplication, there is some way to use AVX2 and OpenMP. 
 For using AVX2, when loading, computing, and storing is executed with four pack of double precision numbers, the performance is increased. 
-To execute AVX2 loading, computing, and storing instructions, we should avoid synchlonization and avoid using four scalar loading instruction. 
-For using OpenMP, we should avoid synchlonization and avoid disturbing unit stride memory references.
+To execute AVX2 loading, computing, and storing instructions, we should avoid synchronization and avoid using four scalar loading instruction. 
+For using OpenMP, we should avoid synchronization and avoid disturbing unit stride memory references.
 DD matrix-vector multiplcation and matrix multiplication can be implemented in these way. 
 %The performance levels of matrix-vector multiplcation become almost the upper bound of roofline model. That of matrix multiplication is lower, i.e. 60\%. 
 
