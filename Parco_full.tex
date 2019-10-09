@@ -134,7 +134,7 @@ For memory bounded operations, the upper bound of performance can be predicted b
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.1cm]{20190731dot.eps}
+    \includegraphics[clip,width=8.1cm]{20191009dot.eps}
     \caption{Performances [Gflops/sec] of inner products $\bm{x}^T\bm{y}$ and $\bm{x}^T\bm{x}$.}
     \label{xdot}
   \end{center}
@@ -145,7 +145,7 @@ As shown in Figure \ref{xd}, these operations have little improvement in perform
 \begin{figure}[htbp]
   \begin{center}
     \includegraphics[clip,width=8.1cm]{20190730vec1.eps}
-    \caption{Performances [Gflop/sec] of $\bm{y} = \alpha\bm{x}$, $\bm{z} = \bm{x} + \bm{y}$, and $\bm{z} = \alpha\bm{x} + \bm{y}$ with and without using AVX2.}
+    \caption{図は資料20190930\_matomeのp13からp16の図でAVX2+OpenMPのケースを追加したもの(y=x+y, z = x+y, y=ax+y, z=ax+yを比較)を載せる}
     \label{xd}
   \end{center}
 \end{figure}
@@ -162,8 +162,8 @@ Since matrix-vector multiplication has nested loops, we should consider the way 
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=12cm]{20190801figure.eps}
-    \caption{Layered approach to implementing AVX2 to PDOT or PB for $\bm{y} = A\bm{x}$. The number 1, 2, 3, 4 indicates the position of SIMD register. }
+    \includegraphics[clip,width=8.4cm]{20191009MVAVX2.eps}
+    \caption{Algorithm for using AVX2 to PDOT or PB for $\bm{y} = A\bm{x}$. The number 1, 2, 3, 4 indicates the position of SIMD register. }
     \label{figimpAVX}
   \end{center}
 \end{figure}
@@ -199,36 +199,6 @@ Since matrix-vector multiplication has nested loops, we should consider the way 
 %\label{maintab}
 %\end{table}
 
-\begin{table}[htbp]
-\footnotesize
-\caption{Difference in the instructions of the way to implementing AVX2 for $\bm{y} = A\bm{x}$. Within the round brackets represent the number of double precision instructions for an instruction. }
-\footnotesize
-\begin{tabular}{l||c|c|c||c|c|c}
-\hline
-        &PDOT&PDOT$_{\rm{PB}}$ & PDOT$_{\rm{PDOT}}$ &PB& PB$_{\rm{PB}}$ & PB$_{\rm{PDOT}}$              \\ \hline\hline
-        {\it sload} (2)   & &     &    & 1 &     &                        \\ 
-        {\it broadcast} (2)  & &     &    &   & 1   &                        \\ 
-        {\it vload} (2)  & &     &    &   &     & 1                     \\ \hline\hline
-
-
-        {\it sload} (2)  &2&     & 4  & 2 &     & 5                  \\ 
-        {\it vload} (2)  & &1    & 1  &   & 2   &                            \\   
-        {\it broadcast} (2)  & &1    &    &   &     &                            \\      \hline      
-                
-        {\it smuladd} (18) &1&     &    & 1 &     &      \\                         
-        {\it vmuladd} (18) & &1    & 1  &   & 1   &                           \\    
-        {\it sadd}  (11)  & &     &    &   &     & 4     \\ 
-        {\it vmul}  (7)  & &     &    &   &     & 1                          \\  \hline  
-        
-        {\it sstore} (2)  & &     &    & 1 &     & 1                          \\      
-        {\it vstore} (2) & &     &    &   & 1   &                            \\ \hline\hline
-        
-        {\it sadd}  (11)  & &     & 3  &   &     &        \\ \hline
-        {\it sstore} (2) &1&     & 1  &   &     &                        \\
-        {\it vstore} (2) & &1    &    &   &     &                       \\  \hline
-\end{tabular}
-\label{maintab}
-\end{table}
 %By using $vmuladd$ instruction instead of $smuladd$ instruction, the number of floating-point operations is reduced to 1/4. The computational workload of PDOT$_{\rm{PB}}$, PDOT$_{\rm{PDOT}}$, and PB$_{\rm{PB}}$ is reduced. However, for PDOT$_{\rm{PDOT}}$, the synchronization is needed after the first loop, so overhead of three $sadd$ are needed. and the workload of loading is also reduced. For PB$_{\rm{PDOT}}$, since synchronization ($sadd$) is needed during the first loop, the computational workload is not become 1/4. Without synchronization ($sadd$), $vstore$ can be used. For load, 
 
 Table \ref{maintab} shows the number of instructions in the loops.
@@ -242,19 +212,6 @@ There is two advantages in PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, because the numb
   \end{center}
 \end{figure}
 
-\begin{table}[htbp]
-\centering
-\footnotesize
-\caption{Performances [Gflops/sec] using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$. }
-\label{MVavx}
-\begin{tabular}{l||c|cc||c|cc}
-\hline
-                       & PDOT    & PDOT$_{\rm{PB}}$       & PDOT$_{\rm{PDOT}}$      & PB   & PB$_{\rm{PB}}$        & PB$_{\rm{PDOT}}$       \\ \hline
-\multirow{1}{*}{500}   & 2.06  & 5.81  & 5.40 & 3.02 & 7.42  & 3.18 \\  
-\multirow{1}{*}{1,000} & 1.60  & 5.01  & 2.19 & 3.40 & 10.24 & 3.69 \\
-\multirow{1}{*}{2,500} & 1.25  & 4.96  & 1.64 & 3.55 & 11.97 & 3.89 \\ \hline
-\end{tabular}
-\end{table}
 
 Using AVX2 in the column order as PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$ are faster than using AVX2 in the row order as PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$, because reading data in column order can be used $vload$.
 For PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, the performance is nearly four times higher than the without using AVX2, because the time for computation is reduced by $vmuladd$. Especially, PB$_{\rm{PB}}$ is more higher because of unit stride memory references. Since PDOT$_{\rm{PDOT}}$ uses $vmuladd$, performance is increased when the order of matrix $N$ = 500. For PB$_{\rm{PDOT}}$, the performance is increased little due to $sload$ and $sadd$ for all of the $N$.
@@ -274,19 +231,6 @@ We do not parallelize first loop, because unit stride memory reference is distur
   \end{center}
 \end{figure}
 
-\begin{table}[htbp]
-\centering
-\footnotesize
-\caption{Performances [Gflops/sec] using OpenMP, and using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.}
-\label{MVomp}
-\begin{tabular}{l||c|cc||c|cc}
-\hline
-                       & PDOT    & PDOT$_{\rm{PB}}$       & PDOT$_{\rm{PDOT}}$      & PB   & PB$_{\rm{PB}}$        & PB$_{\rm{PDOT}}$       \\ \hline
-\multirow{1}{*}{500}   & 5.36 & 10.13 & 9.60 & 6.90 & 11.29   & 7.44  \\  
-\multirow{1}{*}{1,000} & 5.36 & 10.34 & 7.20 & 10.50 & 22.31 & 11.46  \\
-\multirow{1}{*}{2,500} & 4.96 & 10.58 & 6.11 & 12.77 & 25.63  & 14.72 \\ \hline
-\end{tabular}
-\end{table}
 
 As shown in Table \ref{MVomp}, the performance is improved by OpenMP, and PDOT and PB using OpenMP individually have better performance than using AVX2 individually to PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$. 
 By comparing the ratio of the computational performance by the memory performance and operational intensity, the operational intensity of matrix-vector multiplication is 1.13 and it is lower than 2.7 (=92.8/34.1), we can predict that this operation is bounded on memory performance.
@@ -303,7 +247,7 @@ The result of parallelizing the third loop and the second loop of matrix multipl
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.4cm]{20190730mm.eps}
+    \includegraphics[clip,width=8.4cm]{20191009mm.eps}
          \caption{Performances [Gflops/sec] using both AVX2 and OpenMP (parallelizing Third loop and Second loop) for $Y = AX$.}
     \label{figMM3}
   \end{center}
