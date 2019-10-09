@@ -130,7 +130,7 @@ The performance of $\alpha = \bm{x}'\bm{x}$ is 27 Gflops/sec, which having half 
 When using AVX2 and OpenMP, the data supply cannot catch up. 
 Since both inner products are bounded on the computational performance, they have the same tendency of the performance as 2.32 Gflops/sec for serial computing, 8.68 Gflops/sec for AVX2, and 8.42 Gflops/sec for OpenMP in Figure \ref{xdot}.
 %The performance levels is 15\% (14.08/92.8) that is lower than the target of 65\% due to memory references.
-For memory bounded operations, the upper bound of performance can be predicted by the roofline model \cite{roof}. The upper bound is the product of memory performance and operational intensity in Table \ref{opeData}, i.e. the performance levels is 74\% (14.08/(34.1*0.56)). When using memory performance of Copy (= 26.67 Gbytes/sec) by the STREAM benchmark instead of peak memory performance, the performance levels is 94\% (14.08/(26.67*0.56)).
+For memory bounded operations, the upper bound of performance can be predicted by the roofline model \cite{roof}. The upper bound is the product of memory performance and operational intensity in Table \ref{opeData}, i.e. the performance levels is 74\% (14.08/(34.1*0.56)). 
 
 \begin{figure}[htbp]
   \begin{center}
@@ -293,7 +293,7 @@ By comparing the ratio of the computational performance by the memory performanc
 Therefore, even if the amount of computation can be reduced to 1/4 by using AVX2, the execution time can not be reduced due to memory references. 
 In fact, when AVX2 is used with OpenMP, the performance do not increase four times, as shown in Table \ref{MVomp}.
 
-For memory bounded operations, the upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels is 67\% (25.63/(34.1*1.13). It becomes 85\% (25.63/(26.67*1.13)) when using memory performance of Copy (= 26.67 Gbytes/sec) by the STREAM benchmark instead of peak memory performance.
+For memory bounded operations, the upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels is 67\% (25.63/(34.1*1.13).
 
 We can predict that the upper bound of performance is higher in IEEE-style as shown in section 4.1. When using both of AVX2 and OpenMP for the matrix-vector multiplication of matrix of order $N$ = 2,500, the execution time of Cray-style is 0.0044 sec and that of IEEE-style is 0.0043 sec.
 
@@ -322,7 +322,7 @@ For other operations such as vector operations and matrix-vector operations, the
 
 \subsection{Summary}
 
-For DD vector operations, the way to use AVX2 and OpenMP is one. When the operational intensity is low  such as vector addition and scalar multiplication of vector, the performance is increased little. However, for inner product which have more than twice of operational intensity, the performance is increased to almost the upper bound of 94\%. The upper bound is predicted by the roofline model and STREAM benchmark.
+For DD vector operations, the way to use AVX2 and OpenMP is one. When the operational intensity is low  such as vector addition and scalar multiplication of vector, the performance is increased little. However, for inner product which have more than twice of operational intensity, the performance is increased to almost the upper bound of 94\%. 
 
 For DD matrix-vector operations that have nested loops, the way to use AVX2 and OpenMP should be considered. In order to achieve high performance by AVX2, it is necessary to avoid synchronization and using AVX2 loading instructions, not the set of scalar loading instructions. Using AVX2 in this way, the number of floating-point operations can be reduced almost 1/4, and the performance can be increased. Since the operational intensity is high as twice as inner product, the performance is increased to almost the upper bound of 85\% when using both AVX2 and OpenMP. 
 
