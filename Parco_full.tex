@@ -103,7 +103,7 @@ In processing of a single core without parallelization, the problem of DD arithm
 \begin{table}[htbp]
 \centering
 \footnotesize
-\caption{The number of floating-point operations [flops], the number of memory references [bytes], and operational intensity [flops/bytes] for DD arithmetic. Let $ \alpha \in \mathbb{R},\ \bm{x},\ \bm{y},\ \bm{z}\in \mathbb{R}^{N},\ A,\ X,\ Y \in \mathbb{R}^{N\times N}$.}
+\caption{The number of floating-point operations [flops], the number of memory references [bytes], and operational intensity [flops/bytes] for DD arithmetic. Let $ \alpha \in \mathbb{R},\ \bm{x},\ \bm{y},\ \bm{z}\in \mathbb{R}^{N},\ A,\ B,\ C \in \mathbb{R}^{N\times N}$.}
 \label{opeData}
 \begin{tabular}{l||r|r|r}
 \hline
@@ -113,7 +113,7 @@ $\bm{z} = \bm{x} + \bm{y}$ & $11N^{\ } $     & $3N \times 2$$\times$8   &11/48  
 %$\bm{z} = \alpha\bm{x} + \bm{y}$ & $18N^{\ } $     & $3N \times 2$$\times$8  &18/48  $\simeq$	0.38            \\ \hline
 $\alpha  = \bm{x}'\bm{y}$& $18N^{\ }$    &$ 2N  \times 2$$\times$8           &18/32  $\simeq$	0.56          \\ \hline
 $\bm{y} = A\bm{x}$ & $18N^2$ &$ (N^2+2N) \times 2$$\times$8 &18/16 $\simeq$	1.13 \\ \hline
-$Y = AX$  & $18N^3$  & $3N^2 \times 2$$\times$8    &$O(N)$\\ \hline
+$C = AB$  & $18N^3$  & $3N^2 \times 2$$\times$8    &$O(N)$\\ \hline
 \end{tabular}
 \end{table}
 
@@ -236,7 +236,7 @@ There is two advantages in PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, because the numb
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.4cm]{20190730avx21.eps}
+    \includegraphics[clip,width=8.4cm]{20190814avx2.eps}
     \caption{Performances [Gflops/sec] using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.}
     \label{figMV}
   \end{center}
@@ -260,9 +260,7 @@ Using AVX2 in the column order as PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$ are faster
 For PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, the performance is nearly four times higher than the without using AVX2, because the time for computation is reduced by $vmuladd$. Especially, PB$_{\rm{PB}}$ is more higher because of unit stride memory references. Since PDOT$_{\rm{PDOT}}$ uses $vmuladd$, performance is increased when the order of matrix $N$ = 500. For PB$_{\rm{PDOT}}$, the performance is increased little due to $sload$ and $sadd$ for all of the $N$.
 For a problem the execution time is bounded on the time for the computation, the performance can be improved when the number of floating-point operations can be reduced by AVX2 $vmuladd$ instruction without overhead such as using $sadd$ and $sload$ instruction.
 
-We repeat matrix-vector multiplication $N$ times. In other words, in matrix-vector multiplication of $\bm{y} = A\bm{x}$, let $\bm{y}$ and $\bm{x}$ be multiple columns of $\bm{Y}$ and $\bm{X}$. The performance is in the top of Figure \ref{figMV}.
-While the size of L3 cache is 8 MB, when the order of matrix is 500 or less (memory usage is about 3 * $500^2$ * 2 * 8 = 12 MB), the performance is much higher than without repeating. 
-When the order of matrix is 500 or larger, the performance decrease from the peak, then staying. Matrix multiplication can be used in this structure.
+
 %, because there is no optimization to increase data locality such as blocking. 
 
 \subsubsection{AVX2 + OpenMP}
