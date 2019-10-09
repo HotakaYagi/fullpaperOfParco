@@ -111,7 +111,7 @@ In processing of a single core without parallelization, the problem of DD arithm
 $\bm{y} = \alpha\bm{x}$ & $7N^{\ } $     & $2N \times 2$$\times$8      &7/32  $ \simeq$	0.22       \\ \hline
 $\bm{z} = \bm{x} + \bm{y}$ & $11N^{\ } $     & $3N \times 2$$\times$8   &11/48  $\simeq$	0.23            \\ \hline
 %$\bm{z} = \alpha\bm{x} + \bm{y}$ & $18N^{\ } $     & $3N \times 2$$\times$8  &18/48  $\simeq$	0.38            \\ \hline
-$\alpha  = \bm{x}'\bm{y}$& $18N^{\ }$    &$ 2N  \times 2$$\times$8           &18/32  $\simeq$	0.56          \\ \hline
+$\alpha  = \bm{x}^T\bm{y}$& $18N^{\ }$    &$ 2N  \times 2$$\times$8           &18/32  $\simeq$	0.56          \\ \hline
 $\bm{y} = A\bm{x}$ & $18N^2$ &$ (N^2+2N) \times 2$$\times$8 &18/16 $\simeq$	1.13 \\ \hline
 $C = AB$  & $18N^3$  & $3N^2 \times 2$$\times$8    &$O(N)$\\ \hline
 \end{tabular}
@@ -125,8 +125,8 @@ In the case of using OpenMP, since we must sum up the $p$ thread elements after 
 When using both AVX2 and OpenMP, each thread processes a vector of length $N/p$ using AVX2.
 %The workload of loading data from memory is almost equal to AVX2 and OpenMP, because AVX2 loads four data per loading, and each core of OpenMP accesses $N/4$ of data.
 
-For vector of order $N$ = 4,096,000, the performance of $\alpha  = \bm{x}'\bm{y}$ is 2.27 Gflops/sec for serial computing, 7.73 Gflops/sec for AVX2, and 8.20 Gflops/sec for four threads OpenMP. When using AVX2 and OpenMP, the performance is 14.08 Gflops/sec.
-The performance of $\alpha = \bm{x}'\bm{x}$ is 27 Gflops/sec, which having half of memory references. 
+For vector of order $N$ = 4,096,000, the performance of $\alpha  = \bm{x}^T\bm{y}$ is 2.27 Gflops/sec for serial computing, 7.73 Gflops/sec for AVX2, and 8.20 Gflops/sec for four threads OpenMP. When using AVX2 and OpenMP, the performance is 14.08 Gflops/sec.
+The performance of $\alpha = \bm{x}^T\bm{x}$ is 27 Gflops/sec, which having half of memory references. 
 When using AVX2 and OpenMP, the data supply cannot catch up. 
 Since both inner products are bounded on the computational performance, they have the same tendency of the performance as 2.32 Gflops/sec for serial computing, 8.68 Gflops/sec for AVX2, and 8.42 Gflops/sec for OpenMP in Figure \ref{xdot}.
 %The performance levels is 15\% (14.08/92.8) that is lower than the target of 65\% due to memory references.
@@ -135,7 +135,7 @@ For memory bounded operations, the upper bound of performance can be predicted b
 \begin{figure}[htbp]
   \begin{center}
     \includegraphics[clip,width=8.1cm]{20190731dot.eps}
-    \caption{Performances [Gflops/sec] of inner products $\bm{x}'\bm{y}$ and $\bm{x}'\bm{x}$.}
+    \caption{Performances [Gflops/sec] of inner products $\bm{x}^T\bm{y}$ and $\bm{x}^T\bm{x}$.}
     \label{xdot}
   \end{center}
 \end{figure}
