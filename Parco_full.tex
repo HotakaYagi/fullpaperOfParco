@@ -140,12 +140,11 @@ For memory bounded operations, the upper bound of performance can be predicted b
   \end{center}
 \end{figure}
 
-Since the operational intensity of scalar multiplication of vector (0.22) and vector addition (0.23) are smaller than that of inner product (0.56), we can predict the upper bound of these performances are half or less than that of inner product.
-As shown in Figure \ref{xd}, these operations have little improvement in performance. 
+For scalar multiplication of vector, vector addition, and axpy, they require to allocate new memory address for output vector before calling outer C function. This process would become degrade the performance level because roofline model do not consider it.
 \begin{figure}[htbp]
   \begin{center}
     \includegraphics[clip,width=8.1cm]{20190730vec1.eps}
-    \caption{図は資料20190930\_matomeのp13からp16の図でAVX2+OpenMPのケースを追加したもの(y=x+y, z = x+y, y=ax+y, z=ax+yを比較)を載せる}
+    \caption{図は資料20190930\_matomeのp13からp16の図でAVX2+OpenMPのケースを追加したもの(y=x+y, z = x+y, y=ax+y, z=ax+y, (y = ax, x = axも追加する)を比較)を載せる}
     \label{xd}
   \end{center}
 \end{figure}
@@ -266,7 +265,7 @@ For other operations such as vector operations and matrix-vector operations, the
 
 \subsection{Summary}
 
-For DD vector operations, the way to use AVX2 and OpenMP is one. When the operational intensity is low  such as vector addition and scalar multiplication of vector, the performance is increased little. However, for inner product which have more than twice of operational intensity, the performance is increased to almost the upper bound of 94\%. 
+Before offloading to outer C function, it is required to allocate memory address in MATLAB. This overhead degrades some vector operations such as vector addition, scalar multiplication of vector, and axpy, which require output of vector. This overhead cannot consider in the roof line model, so the performance levels are low. Since the inner product is not require output of vector, its performance level is high when using the roof line model. However, the performances for vector operations are low , because their operational intensities are low, and being bounded on memory references.
 
 For DD matrix-vector operations that have nested loops, the way to use AVX2 and OpenMP should be considered. In order to achieve high performance by AVX2, it is necessary to avoid synchronization and using AVX2 loading instructions, not the set of scalar loading instructions. Using AVX2 in this way, the number of floating-point operations can be reduced almost 1/4, and the performance can be increased. Since the operational intensity is high as twice as inner product, the performance is increased to almost the upper bound of 85\% when using both AVX2 and OpenMP. 
 
