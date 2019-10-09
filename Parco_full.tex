@@ -151,7 +151,7 @@ For scalar multiplication of vector, vector addition, and axpy, they require to 
 
 Even OpenMP is used, the situation is the same. The operational intensity of axpy is 0.38 and this value is higher than that of scalar multiplication of vector and vector addition. When using AVX2, we can estimate that the upper bound of performance of axpy is higher. For the vector of order $N$ = 4,096,000, the execution time of axpy is 0.033 sec when serial computing. This time is longer than 0.023 sec for that of the vector addition. However, when we use AVX2, the execution time of axpy is 0.023 sec and that of vector addition is 0.022 sec, as almost the same. Since the workload of memory reference is same for these two operations, the time for computation is reduced by AVX2.
 
-Since the operational intensity of IEEE-style is higher than that of Cray-style, we can predict that the upper bound of performance in IEEE-style is higher. When we use AVX2 and OpenMP both for the inner product for same $N$, the execution time of Cray-style is 0.0052 sec and that of IEEE-style is 0.0054 sec. Although the number of floating-point operations for IEEE-style is larger, the execution time is almost the same.
+
 
 \subsection{DD Matrix-Vector Multiplication}
 $y_{i} = \sum a_{i,j}x_{j}$ indicates the matrix-vector multiplication. 
@@ -239,7 +239,7 @@ In fact, when AVX2 is used with OpenMP, the performance do not increase four tim
 
 For memory bounded operations, the upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels is 67\% (25.63/(34.1*1.13).
 
-We can predict that the upper bound of performance is higher in IEEE-style as shown in section 4.1. When using both of AVX2 and OpenMP for the matrix-vector multiplication of matrix of order $N$ = 2,500, the execution time of Cray-style is 0.0044 sec and that of IEEE-style is 0.0043 sec.
+
 
 \subsection{DD Matrix-Matrix Multiplication}
 TODO. ループのインデックスの順番、どのループをOpenMPで並列化するか。について説明を追加(パワポp24)
@@ -264,7 +264,7 @@ Since, the operational intensity of matrix multiplication is too large as $O(N)$
 For other operations such as vector operations and matrix-vector operations, the performances are not increased theoretically, because their operational intensity is lower than 2.7 (=92.8/34.1). %The improvement of performance by AVX2 and OpenMP is in proportion to operational intensities.
 
 %Unlike in matrix-vector multiplication, without optimization of increasing data locality, performance worsen at large data size, as shown in Figure \ref{figMM3}.
-\section{IEEE-style TODO. 主張をまとめ, 別紙で取捨の確認}
+\section{IEEE-style TODO. 主張をまとめ, 別紙で取捨の確認(パワポp46, p47あたり)}
 
 \subsection{Summary TODO. 文章の修正}
 
