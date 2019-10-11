@@ -81,7 +81,7 @@ The execution time of DD multiplication is 0.018 sec, and that of multiply-and-a
 %The performances of DD multiplication and multiply-and-add are about 3.88 Gflops/sec and 3.75 Gflops/sec which correspond to 67\% and 65\%, respectively, comparing with the peak computational performance of 5.8 Gflops/sec.
 %Since this is an ideal state because of no memory references, 65\% of the computational performance is the target when evaluating the performance in the following sections. We assumed to use FMA instructions for DD arithmetic.
 
-\section{Performance Prediction TODO.AVX2の説明足す(査読2), 実験環境を強調?(査読3)}
+\section{Performance Prediction TODO.AVX2の説明足す(査読2), 実験環境を強調?(査読3), Rooflineの図を入れる?(査読3)}
 Since the order of computation in DD arithmetic can not be changed, we consider to process multiple data simultaneously for parallelization.
 The unit time of one operation is not changed, but if multiple results can be obtained in one unit time, then the total execution time is reduced.
 We examine to accelerate for basic matrix and vector operations.
@@ -134,7 +134,7 @@ For memory bounded operations, the upper bound of performance can be predicted b
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.1cm]{20191009dot.eps}
+    \includegraphics[clip,width=10cm]{20191009dot.eps}
     \caption{Performances [Gflops/sec] of inner products $\bm{x}^T\bm{y}$ and $\bm{x}^T\bm{x}$.}
     \label{xdot}
   \end{center}
@@ -154,101 +154,101 @@ Even OpenMP is used, the situation is the same. The operational intensity of axp
 
 
 \subsection{DD Matrix-Vector Multiplication}
-$y_{i} = \sum a_{i,j}x_{j}$ indicates the matrix-vector multiplication. 
-Matrix-vector multiplication can be implemented in two ways whether reading memory is in the row order or column order. The algorithm is differed, as shown in Figure \ref{figimpAVX} of PDOT and PB. We use letter P to represent the shape of Panel, and letter B to represent the shape of Block \cite{goto}. Hereafter, the loops in the program is called first, second, and third from the innermost.
+$y_{i} = \sum _i\sum _j a_{ij}x_{j}$, and $y_{i} = \sum _j\sum _i a_{ij}x_{j}$ 
+indicate the matrix-vector multiplication. 
+Matrix-vector multiplication can be implemented in 
+two types of algorithms depending on the order of index $i$ and $j$. We call $i$-$j$ type as PDOT, and $j$-$i$ type as PB.
+These algorithms are differ in the memory access. PB is the unit stride access in MATLAB.
+We use letter P to represent the shape of Panel, and letter B to represent the shape of Block \cite{goto}. 
+Hereafter, the loops in the program is called first, second, and third from the innermost.
 \subsubsection{AVX2}
-Since matrix-vector multiplication has nested loops, we should consider the way to use AVX2. The four ways of using AVX2 are shown in Figure \ref{figimpAVX}. Letter {\it v} means vector and letter {\it s} means scalar. 
+Since matrix-vector multiplication has nested loops, we should consider the way to use AVX2. 
+The four ways of using AVX2 are shown in Figure \ref{figimpAVX}. 
+Here, the letter {\it v} means vector instruction and letter {\it s} means scalar instruction. 
+Blue words are the instructions that can use vector instructions. 
+Red words are the instructions that cannot use vector instructions or overheads.
+(青文字・赤文字の説明は入れた方が良い？冗長な気も。。)
 TODO.Figure4を受けての説明を足す(AVX2のloadが使える、使えない)
 \begin{figure}[htbp]
   \begin{center}
     \includegraphics[clip,width=8.4cm]{20191009MVAVX2.eps}
-    \caption{Algorithm for using AVX2 to PDOT or PB for $\bm{y} = A\bm{x}$. The number 1, 2, 3, 4 indicates the position of SIMD register. }
+    \caption{Algorithm for using AVX2 to PDOT or PB for $\bm{y} = A\bm{x}$.}
     \label{figimpAVX}
   \end{center}
 \end{figure}
 
-%\begin{table}[htbp]
-%\footnotesize
-%\caption{Difference in the instructions of the way to implement AVX2 to $\bm{y} = A\bm{x}$. Within the round brackets represent the number of double precision instructions for an instruction. }
-%\footnotesize
-%\begin{tabular}{l|c||c|c|c||c|c|c}
-%\hline
-%        &\# of instructions&PDOT&PDOT$_{\rm{PB}}$ & PDOT$_{\rm{PDOT}}$ &PB& PB$_{\rm{PB}}$ & PB$_{\rm{PDOT}}$              \\ \hline\hline
-%        {\it sload} &2   & &     &    & 1 &     &                        \\ 
-%        {\it broadcast} &2  & &     &    &   & 1   &                        \\ 
-%        {\it vload} &2  & &     &    &   &     & 1                     \\ \hline\hline
-%
-%
-%        {\it sload} &2  &2&     & 4  & 2 &     & 5                  \\ 
-%        {\it vload} &2  & &1    & 1  &   & 2   &                            \\   
-%        {\it broadcast} &2  & &1    &    &   &     &                            \\      \hline      
-%                
-%        {\it smuladd} &18 &1&     &    & 1 &     &      \\                         
-%        {\it vmuladd} &18 & &1    & 1  &   & 1   &                           \\    
-%        {\it sadd}  &11  & &     &    &   &     & 4     \\ 
-%        {\it vmul}  &7  & &     &    &   &     & 1                          \\  \hline  
-%        
-%        {\it sstore} &2  & &     &    & 1 &     & 1                          \\      
-%        {\it vstore} &2 & &     &    &   & 1   &                            \\ \hline\hline
-%        
-%        {\it sadd}  &11  & &     & 3  &   &     &        \\ \hline
-%        {\it sstore} &2 &1&     & 1  &   &     &                        \\
-%        {\it vstore} &2 & &1    &    &   &     &                       \\  \hline
-%\end{tabular}
-%\label{maintab}
-%\end{table}
-
-%By using $vmuladd$ instruction instead of $smuladd$ instruction, the number of floating-point operations is reduced to 1/4. The computational workload of PDOT$_{\rm{PB}}$, PDOT$_{\rm{PDOT}}$, and PB$_{\rm{PB}}$ is reduced. However, for PDOT$_{\rm{PDOT}}$, the synchronization is needed after the first loop, so overhead of three $sadd$ are needed. and the workload of loading is also reduced. For PB$_{\rm{PDOT}}$, since synchronization ($sadd$) is needed during the first loop, the computational workload is not become 1/4. Without synchronization ($sadd$), $vstore$ can be used. For load, 
-
-Table \ref{maintab} shows the number of instructions in the loops.
-There is two advantages in PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, because the number of operations is reduced by using $vmuladd$ instead of $smuladd$, and the workload of loading is reduced by using $vload$ instead of $sload$. Although PDOT$_{\rm{PDOT}}$ can use $vmuladd$, there is no advantages in PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$, because the number of $sload$ is increased and cannot use $vstore$ due to having synchronization ($sadd$). For PB$_{\rm{PDOT}}$, the synchronization ($sadd$) is serious, because it is computed during the first loop.
+For using AVX2 for the column order (PDOT$_{\rm{PB}}$, PB$_{\rm{PB}}$), we can use AVX2 loading instruction to load four continuous data of matrix.
+For using AVX2 for row order (PDOT$_{\rm{PDOT}}$, PB$_{\rm{PDOT}}$), we should use four times of scalar loading instruction to load four discontinous data of matrix.
+Furthermore, PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$ require overhead for summing up, and they cannot use AVX2 storing instruction.
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.4cm]{20190814avx2.eps}
+    \includegraphics[clip,width=10cm]{20191011avx2.eps}
     \caption{Performances [Gflops/sec] using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.}
     \label{figMV}
   \end{center}
 \end{figure}
 
 TODO. 冗長な説明を直す(パワポのp20の説明に直す)
-Using AVX2 in the column order as PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$ are faster than using AVX2 in the row order as PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$, because reading data in column order can be used $vload$.
-For PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, the performance is nearly four times higher than the without using AVX2, because the time for computation is reduced by $vmuladd$. Especially, PB$_{\rm{PB}}$ is more higher because of unit stride memory references. Since PDOT$_{\rm{PDOT}}$ uses $vmuladd$, performance is increased when the order of matrix $N$ = 500. For PB$_{\rm{PDOT}}$, the performance is increased little due to $sload$ and $sadd$ for all of the $N$.
-For a problem the execution time is bounded on the time for the computation, the performance can be improved when the number of floating-point operations can be reduced by AVX2 $vmuladd$ instruction without overhead such as using $sadd$ and $sload$ instruction.
+PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$ that can use AVX2 loading and storing instructions are higher in the performance than others.
+The performance is increased almost four times by using AVX2 for PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$. 
+We then use OpenMP for these two algorithms. 
 
-
-%, because there is no optimization to increase data locality such as blocking. 
-
-\subsubsection{AVX2 + OpenMP}
+\subsubsection{AVX2 + OpenMP TODO. Inner loop or First loop}
 TODO. OpenMPのみのコメントを追加(外側のループにOpenMPを使うこと)
-We do not parallelize first loop, because unit stride memory reference is disturbed. When the pragma directive is used for the second loop of DD matrix-vector multiplication of the order $N$ for PDOT, PDOT$_{\rm{PB}}$ and PDOT$_{\rm{PDOT}}$, each thread computes the vector of the order $N/p$ respectively. These vectors are merged into the vector order of $N$ vertically. In this case, synchronization is not required. For PB, PB$_{\rm{PB}}$, and PB$_{\rm{PDOT}}$, each thread computes the partial sum of the vectors of order $N$ respectively. The result is obtained by summing up of partial sums of $p$ worker vectors. This summing up requires $p-1$ vector additions.
+For using OpenMP, there are two ways depending on which loop (outer or inner) to parallelize. 
+For PDOT with $N$ = 2,500, the performance for outer loop parallelism is 10.76 Gflops/sec and that for inner loop parallelism is 4.55 Gflops/sec.
+For PB with $N$ = 2,500, the performance for outer loop parallelism is 13.07 Gflops/sec and that for inner loop parallelism is 4.79 Gflops/sec.
+These result shows that parallelizing the outer loop is better to use OpenMP for this problem. 
+The Figure \ref{figMM} shows that the combinations of using AVX2 to load four data of matrix continuously and using OpenMP to parallelize the outer loop.
+% When the pragma directive is used for the second loop of DD matrix-vector multiplication of the order $N$ for PDOT, PDOT$_{\rm{PB}}$ and PDOT$_{\rm{PDOT}}$, each thread computes the vector of the order $N/p$ respectively. These vectors are merged into the vector order of $N$ vertically. In this case, synchronization is not required. For PB, PB$_{\rm{PB}}$, and PB$_{\rm{PDOT}}$, each thread computes the partial sum of the vectors of order $N$ respectively. The result is obtained by summing up of partial sums of $p$ worker vectors. This summing up requires $p-1$ vector additions.
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.4cm]{20190730omp1.eps}
+    \includegraphics[clip,width=10cm]{20191011mv_conc.eps}
         \caption{Performances [Gflops/sec] using OpenMP, and using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.}
     \label{figMM}
   \end{center}
 \end{figure}
 
 
-As shown in Table \ref{MVomp}, the performance is improved by OpenMP, and PDOT and PB using OpenMP individually have better performance than using AVX2 individually to PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$. 
-By comparing the ratio of the computational performance by the memory performance and operational intensity, the operational intensity of matrix-vector multiplication is 1.13 and it is lower than 2.7 (=92.8/34.1), we can predict that this operation is bounded on memory performance.
-Therefore, even if the amount of computation can be reduced to 1/4 by using AVX2, the execution time can not be reduced due to memory references. 
-In fact, when AVX2 is used with OpenMP, the performance do not increase four times, as shown in Table \ref{MVomp}.
-
-For memory bounded operations, the upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels is 67\% (25.63/(34.1*1.13).
+% As shown in Table \ref{MVomp}, the performance is improved by OpenMP, and PDOT and PB using OpenMP individually have better performance than using AVX2 individually to PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$. 
+PB$_{\rm{PB}}$ with OpenMP is the best in performance. 
+Since the operational intensity of matrix-vector multiplication is 1.13 and it is lower than 2.7 (=92.8/34.1), matrix-vector multiplication would become being bounded on memory when using AVX2 and OpenMP.
+Even using AVX2 and OpenMP, the execution time cannot be reduced 16 times (AVX2 x 4-core) from the case of serial due to memory references. 
+The upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels when $N$ = 2,500 is 67\% (25.63/(34.1*1.13).
 
 
 
 \subsection{DD Matrix-Matrix Multiplication}
 TODO. ループのインデックスの順番、どのループをOpenMPで並列化するか。について説明を追加(パワポp24)
-AVX2 can be used to the matrix-vector multiplication and the performance is improved when repeating it. The matrix multiplication ($y_{ij}=\sum a_{jk}x_{kj}$) with index {\it j}-{\it k}-{\it i} order structure has no synchronizations and unit stride memory reference.
-The result of parallelizing the third loop and the second loop of matrix multiplication of {\it j}-{\it k}-{\it i} order structure for PB$_{\rm{PB}}$ is shown in Figure \ref{figMM3}.
+The matrix multiplication ($y_{ij}=\sum_{ijk} a_{jk}x_{kj}$) has six types of algorithms depending on the order of index {\it j}-{\it k}-{\it i}.
+\begin{table}[htbp]
+  \centering
+  \caption{The performance of matrix multiplication when $N$ is 2,500 depending on the order of index.}
+  \label{mmindx}
+  \begin{tabular}{l|cccccc}
+    \hline
+  Index of Outer loop          & $i$    & $i$    & $j$    & $j$    & $k$    & $k$    \\
+  Index of Inner loop          & $k$    & $j$    & $i$    & $k$    & $j$    & $i$    \\
+  Index of Inner most loop     & $j$    & $k$    & $k$    & $i$    & $i$    & $j$    \\
+  Performance {[}Gflops/sec{]} &  0.80  &  0.81  &  0.89  &  3.62  &  3.52  & 0.83
+  \\ \hline
+  \end{tabular}
+\end{table}
+
+When the index of inner most loop is $i$, the algorithm become unit stride access for MATLAB and result in higher performance, that is 3.6 Gflops/sec.
+When using AVX2 to load four data of matrix continuously, the performance for matrix multiplication of $j$-$k$-$i$ order and that of $k$-$j$-$i$ order are almost the same.
+When $N$ = 2,500, the formar is 12.00 Gflops/sec and the latter is 12.27 Gflops/sec.
+For using OpenMP, the performance for matrix multiplication with $N$ = 2,500 of $j$-$k$-$i$ order with the outer loop parallelism is 12.26 Gflops/sec
+and that of the inner loop parallelism is 11.93 Gflops/sec.
+As for the $k$-$j$-$i$ order, the performance of the outer loop parallelism is 6.87 Gflops/sec and the inner loop parallelsm is 11.78 Gflops/sec.
+The only case of using OpenMP to the outer loop for $k$-$j$-$i$ order is low performance, and the others are not differ.
+However, when using AVX2 and OpenMP, the performance of $j$-$k$-$i$ order with outer loop parallelism is the highest as in Figure \ref{figMM3}. 
 
 \begin{figure}[htbp]
   \begin{center}
-    \includegraphics[clip,width=8.4cm]{20191009mm.eps}
+    \includegraphics[clip,width=10cm]{20191009mm.eps}
          \caption{Performances [Gflops/sec] using both AVX2 and OpenMP (parallelizing Third loop and Second loop) for $Y = AX$.}
     \label{figMM3}
   \end{center}
