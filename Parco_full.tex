@@ -225,8 +225,9 @@ TODO. ループのインデックスの順番、どのループをOpenMPで並�
 The matrix multiplication ($y_{ij}=\sum_{ijk} a_{jk}x_{kj}$) has six types of algorithms depending on the order of index {\it j}-{\it k}-{\it i}.
 \begin{table}[htbp]
   \centering
-  \caption{The performance of matrix multiplication when $N$ is 2,500 depending on the order of index.}
+  \caption{Performance of matrix multiplication when $N$ is 2,500 depending on the order of index.}
   \label{mmindx}
+  \small
   \begin{tabular}{l|cccccc}
     \hline
   Index of Outer loop          & $i$    & $i$    & $j$    & $j$    & $k$    & $k$    \\
@@ -249,30 +250,46 @@ However, when using AVX2 and OpenMP, the performance of $j$-$k$-$i$ order with o
 \begin{figure}[htbp]
   \begin{center}
     \includegraphics[clip,width=10cm]{20191009mm.eps}
-         \caption{Performances [Gflops/sec] using both AVX2 and OpenMP (parallelizing Third loop and Second loop) for $Y = AX$.}
+         \caption{Performances [Gflops/sec] using both AVX2 and OpenMP to the outer loop for $j$-$k$-$i$ order and $k$-$j$-$i$ order for $C = AB$.}
     \label{figMM3}
   \end{center}
 \end{figure}
 
 TODO. 一番性能が高いケースの行列積の傾向を表を使って説明し直す(パワポp29)
-For the case that matrix of order $N$ = 2,500, the performance of PB$_{\rm{PB}}$ is 42.98 Gflops/sec.
-For the order of matrix of order $N$ = 560, the performance is peak, i.e. 57.31 Gflops/sec and the performance levels of 61.76\%. For the serial computing, the performance is 3.56 Gflops/sec.
-The performance is from 40 Gflops/sec to 60 Gflops/sec when parallelizing third loop. However, when parallelizing second loop, the performance is from 30 Gflops/sec to 50 Gflops/sec. 
 %The gap between peak and the performance for large matrix are increased comparing with without using OpenMP. %For matrix-vector multiplication, this gap is not appeared. The gap is appeared when without applying optimization of increasing data locality such as blocking.
+Table \ref{tabMM} shows the case of $j$-$k$-$i$ order with outer loop parallelism. 
+Since the operational intensity of matrix multiplication is too large as $O(N)$, the performance improved near 16 times (AVX2 x four-core) by utilizing both AVX2 and OpenMP in this way.
 
-Since, the operational intensity of matrix multiplication is too large as $O(N)$, the execution time is bounded on time for computation. For parallelizing third loop, the performance improve almost theoretically 16 times by utilizing both AVX2 and OpenMP.
-For other operations such as vector operations and matrix-vector operations, the performances are not increased theoretically, because their operational intensity is lower than 2.7 (=92.8/34.1). %The improvement of performance by AVX2 and OpenMP is in proportion to operational intensities.
+\begin{table}[htbp]
+  \centering
+  \caption{Execution time, Speed-up ratio, Performance, Upper bound of performance, and performance level for $j$-$k$-$i$ order of matrix multiplication}
+  \label{tabMM}
+  \small
+  \begin{tabular}{l|rrrrr}
+    \hline
+               & \begin{tabular}[c]{@{}c@{}}Execution\\ Time {[}sec{]}\end{tabular} & Speed-up & \begin{tabular}[c]{@{}c@{}}Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Upper bound of\\ Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Performance \\ level {[}\%{]}\end{tabular} \\ \hline
+  Serial       & 88.78                                                              & 1.00     & 3.17                                                                   & 5.8                                                                                     & 55                                                                    \\ \hline
+  AVX2         & 22.93                                                              & 3.87     & 12.27                                                                  & 23.2                                                                                    & 53                                                                    \\ \hline
+  OpenMP       & 22.95                                                              & 3.87     & 12.26                                                                  & 23.2                                                                                    & 53                                                                    \\ \hline
+\begin{tabular}[c]{@{}l@{}}AVX2 \&\\ OpenMP\end{tabular} & 6.54                                                               & 13.57    & 42.99                                                                  & 92.8                                                                                    & 46               \\ \hline                                                    
+  \end{tabular}
+  \end{table}
 
-%Unlike in matrix-vector multiplication, without optimization of increasing data locality, performance worsen at large data size, as shown in Figure \ref{figMM3}.
 \section{IEEE-style TODO. 主張をまとめ, 別紙で取捨の確認(パワポp46, p47あたり)}
 
 \subsection{Summary TODO. 文章の修正}
 
-Before offloading to outer C function, it is required to allocate memory address in MATLAB. This overhead degrades some vector operations such as vector addition, scalar multiplication of vector, and axpy, which require output of vector. This overhead cannot consider in the roof line model, so the performance levels are low. Since the inner product is not require output of vector, its performance level is high when using the roof line model. However, the performances for vector operations are low , because their operational intensities are low, and being bounded on memory references.
+Before offloading to outer C function, it is required to allocate memory address in MATLAB. 
+This overhead degrades some vector operations such as vector addition, scalar multiplication of vector, and axpy, which require output of vector. 
+This overhead cannot consider in the roof line model, so the performance levels are low. 
+Since the inner product is not require output of vector, its performance level is high when using the roof line model. 
+However, the performances for vector operations are low or modest, because their operational intensities are low, and being bounded on memory references.
 
-For DD matrix-vector operations that have nested loops, the way to use AVX2 and OpenMP should be considered. In order to achieve high performance by AVX2, it is necessary to avoid synchronization and using AVX2 loading instructions, not the set of scalar loading instructions. Using AVX2 in this way, the number of floating-point operations can be reduced almost 1/4, and the performance can be increased. Since the operational intensity is high as twice as inner product, the performance is increased to almost the upper bound of 85\% when using both AVX2 and OpenMP. 
+As for DD matrix-vector operations, it is necessary for achieving high performance to use AVX2 loading / storing instructions instead of the set of scalar instructions. 
+Using AVX2 in this way, and using OpenMP to the outer loop, the performance can become the 67\% of the upper bound of performance.
 
-For DD matrix multiplication, the performance degraded after the peak, using both AVX2 and OpenMP are not enough to optimize. However, when using AVX2 in the effective way, the performance increases almost theoretically and the execution time is reduced, because its operational intensity is so high.
+For DD matrix multiplication, $j$-$k$-$i$ order of index, using AVX2 to load four continuous data, and using OpenMP to the outer loop is the best for MATLAB.
+At that condition, the performance increases almost 16 times and the execution time is reduced, because its operational intensity is so high.
 
 \section{Conclusion TODO. 文書の修正}
 In response to demands for ways to facilitate high-precision arithmetic with an interactive computing environment, we developed MuPAT on Scilab/MATLAB. MuPAT uses DD arithmetic that requires large number of floating-point operations. Executing DD arithmetic takes much time for computation. It is possible to offload to outer C function by MATLAB executable file and use FMA, AVX2, OpenMP supported by modern CPU. 
