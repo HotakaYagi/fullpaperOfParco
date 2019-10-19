@@ -1,0 +1,34 @@
+\documentclass{IOS-Book-Article}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{amsfonts}
+\usepackage{mathptmx}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{ulem}
+\usepackage{setspace}
+\usepackage{mathptmx}
+\usepackage{listings}
+\usepackage[dvipdfmx]{color}
+\pagestyle{empty} 
+\def\hb{\hbox to 10.7 cm{}}
+\usepackage{here}
+\usepackage{fancybox,ascmac}
+\definecolor{mid}{rgb}{ .115, .66, .45}
+
+\begin{document}
+\pagestyle{plain}
+{\Large Summary ver 1, 2019 10/17}
+%\def\thepage{}
+\section{Experiment for Matrix and Vector Operations in DD Arithmetic}
+\subsection{Summary}
+
+When the left hand side variable is new, the memory allocation overhead is required, and this overhead degrade the performance of vector operations from the upper bound of 70\% to the upper bound of 20\%. 
+This overhead is inevitable for calling C function in MATLAB.
+DD vector operations become being bounded on memory performance by using AVX2 and OpenMP. Under this condition, $\alpha\bm{x}+\bm{y}$ and $\bm{x}+\bm{y}$ become the same execution time and $\bm{x}^T\bm{x}$ become the half of execution time of $\bm{x}^T\bm{y}$. 
+
+As for DD matrix-vector multiplication, it is necessary for achieving high performance to use AVX2 load / store instructions instead of the set of scalar instructions. Using AVX2 in this way, and using OpenMP to the outer loop, the performance for $N$ = 2,500 can become the 66\% of the upper bound. This is 7.2 times of the acceleration. This operation become being bounded on memory performance by using AVX2 and OpenMP, so it cannot accelerate 16 times by AVX2 and OpenMP on a 4-core machine.
+
+There are several implementations of DD matrix multiplication, but it is important to using AVX2 for the loop that can use vector instructions, and using OpenMP to the outer loop that no summing-up overhead. Under these conditions, the performance for $N$ = 2,500 is 48\% of the upper bound, and it can accelerate near 16 times, because this operation is being bounded on computational performance.
+\end{document}

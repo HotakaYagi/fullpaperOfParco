@@ -1,0 +1,503 @@
+\documentclass{IOS-Book-Article}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{amsfonts}
+\usepackage{mathptmx}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{ulem}
+\usepackage{setspace}
+\usepackage{mathptmx}
+\usepackage{listings}
+\usepackage[dvipdfmx]{color}
+\pagestyle{empty} 
+\def\hb{\hbox to 10.7 cm{}}
+\usepackage{here}
+\usepackage{fancybox,ascmac}
+\definecolor{mid}{rgb}{ .115, .66, .45}
+\definecolor{mur}{rgb}{ .70, .10, .70}
+
+\def\keywords#1{\begin{center}{\bf Keywords}\\{#1}\end{center}} 
+\begin{document}
+\pagestyle{plain}
+%\def\thepage{}
+
+\begin{frontmatter} 
+\title{ Acceleration of Interactive Multiple Precision Arithmetic Toolbox MuPAT using FMA,  SIMD, and OpenMP }
+\author[A]{{\fnms{Hotaka} \snm{YAGI}}
+\thanks{Corresponding Author: {\color{blue}{Graduate School of Science of Department of Applied Mathematics}}, 1-3 Kagurazaka, Shinjuku-ku, Tokyo 162-8601, Japan; E-mail: 1419521@ed.tus.ac.jp.}},
+\author[A]{\fnms{Emiko} \snm{ISHIWATA}},
+ and 
+\author[B]{ \fnms{Hidehiko} \snm{HASEGAWA}}
+
+\address[A]{Tokyo University of Science, Japan}
+\address[B]{ University of Tsukuba, Japan}
+
+\begin{abstract}
+MuPAT, an interactive multiple precision arithmetic toolbox for use on MATLAB and Scilab enables the users to treat quadruple and octuple precision arithmetics. MuPAT uses DD and QD algorithm that require from 10 to 600 double precision floating-point operations for each operation. That causes taking much time for computation.(refree3 英文おかしい) In order to reduce the execution time in basic matrix and vector operations, FMA, AVX2 and OpenMP are used. We applied these features to MuPAT using the function of MATLAB executable file, and analyzed the performance. Using AVX2 and OpenMP to unit stride memory references and to avoid {\color{blue}{synchronization(typo:refree3)}} can increase the performance of DD operations. We confirm that the effectiveness of AVX2 and OpenMP is depending on the operational intensity. 
+\end{abstract}
+\begin{keyword}
+Double-Double\sep Quad-Double\sep MATLAB\sep  AVX2\sep Multicore
+\end{keyword}
+\end{frontmatter}
+\section{Introduction TODO.高精度演算の意義を足す(査読4)}
+
+In floating-point arithmetic, rounding error is unavoidable. The accumulation of rounding errors leads to unreliable and inaccurate results. One of the ways to reduce the rounding errors is the use of high-precision arithmetic.  
+Most of high-precision arithmetics are accomplished by software emulation such as QD library \cite{QD}. 
+
+Our team developed $MuPAT$, an open-source interactive $Multiple$ $Precision$ $Arithmetic$ $Toolbox$ \cite{saito, hota} for use with the MATLAB and Scilab computing environments. MuPAT uses DD (Double-Double) \cite{DD} and QD (Quad-Double) \cite{QD,DD} algorithms which are based on the combination of double precision arithmetic, and excessively long computation times often result(refree3 英文おかしい). 
+DD and QD arithmetics are possible to accelerate by applying FMA \cite{SIMD}, AVX2 \cite{SIMD}, and OpenMP \cite{omp}. 
+
+A floating-point multiply-add operation is performed in one step with a single rounding by FMA, four double precisions of data are processed at once with AVX2 instruction, and OpenMP enables {\color{blue}{thread-level (refree3)}} parallelism in a shared memory. {\color{blue}{(Introductionで詳しい説明か、3節で詳しく述べるか)}}
+
+We implement the combination of these features, and precisely examine some basic matrix and vector operations for DD arithmetic. 
+
+
+%The performance of matrix and vector operations are increased by the respective way, as discussed in Section 4. The execution time of DD arithmetic can be reduced because the operational intensity of matrix and vector operations are high. We discuss the way to use AVX2 and OpenMP for DD arithmetic to use for MuPAT. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{DD Arithmetic TODO.DD演算の説明足す(査読1, 3), FMAの説明足す(査読2)}
+DD (Double-Double) arithmetic \cite{DD} is based on the algorithm that enables {\color{blue}{quasi (typo refree3)}} quadruple precision arithmetic.
+{\color{blue}{A DD number $a$ is represented in combination with two double precision numbers $a_{hi}$ and $a_{lo}$ {\color{mur}{such}} as $a=a_{hi}+a_{lo}$.}} 
+DD algorithm requires 10 to 30 of double precision operations for each arithmetic operation\sout{ and has data dependency of flow, i.e.} {\color{mur}{and}} the order of computation must be kept. \sout{The accuracy of this algorithm consists of the order of the computation. }
+
+
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=7cm]{201910algo.eps}
+    \caption{DD addition and multiplication \sout{using FMA.} $a$, $b$, and $c$ are DD numbers. The symbols $\oplus$, $\ominus$, $\otimes$ mean the {\color{blue}{double precision}} floating-point operators \sout{performed on computer,} and the symbols $+$, $-$, $\times$ mean mathematical operators. $fl(a\times b+c)$ means FMA. \sout{TODO.inputとoutputが何かを明確にする(査読1)}}
+\label{fig1}
+  \end{center}
+\end{figure}
+
+The algorithms for DD addition and multiplication are shown in Figure \ref{fig1}.
+{\color{mur}{The number of floating-point number operations}} for DD addition is 11. DD addition in Figure \ref{fig1} \sout{is} called Cray-style \cite{ichi}. {\color{blue}{There is a}} highly accurate, {\color{blue}{and more expensive (refree1,3)}} (20 times of floating-point operations) algorithm is called IEEE-style \cite{ichi}. \sout{Cray-style is mainly used, because it is faster \cite{DDBLAS}.} \sout{TODO. IEEE-styleの説明をするなら詳しくする(査読1)}
+DD multiplication algorithm \cite{QD} \sout{can} utilizes FMA (Fused Multiply-Add). 
+The number of floating-point {\color{blue}{number}} operations for DD multiplication is 7 with FMA and 24 without FMA.
+FMA \sout{is a floating-point units that} can execute double precision multiply-and-add operation in one instruction \sout{. Since a double precision multiply-and-add operation is performed in one step} via a single rounding. {\color{mid}{By using FMA instructions, the rounding error is reduced.}} {\color{mur}{The number of floating-point number operations for DD multiply-add operation is 18 (=11+7). }}
+
+
+
+\sout{We measured the execution time of DD multiplication and multiply-and-add that are repeated $10^7$ times using FMA.}
+ 
+
+\sout{The execution time of DD multiplication is 0.018 sec, and that of multiply-and-add is 0.048 sec. The ratio for execution time (0.048/0.018 = 2.67) and the ratio for the floating-point operations (18/7 = 2.57) is almost the same. The number of floating-point operations determine the execution time for scalar operation.}
+%The performances of DD multiplication and multiply-and-add are about 3.88 Gflops/sec and 3.75 Gflops/sec which correspond to 67\% and 65\%, respectively, comparing with the peak computational performance of 5.8 Gflops/sec.
+%Since this is an ideal state because of no memory references, 65\% of the computational performance is the target when evaluating the performance in the following sections. We assumed to use FMA instructions for DD arithmetic.
+
+\section{Performance Prediction TODO.AVX2の説明足す(査読2), 実験環境を強調?(査読3), Rooflineの図を入れる?(査読3)}
+Since the order of computation in DD arithmetic can not be changed {\color{mur}{for acceleration}}, we consider to process multiple data simultaneously \sout{for parallelization} {\color{blue}{by using data-level parallelism}}.
+The unit time of \sout{one} {\color{blue}{each}} operation is not changed, but if multiple results can be obtained in one unit time, then the total execution time is reduced.
+We \sout{examine} {\color{blue}{tried}} to accelerate for basic matrix and vector operations {\color{mur}{as the target for data-level parallelism}}.
+
+AVX2 instructions \cite{SIMD} can \sout{perform the single instruction for} {\color{blue}{process}} four double precision data  {\color{blue}{in one unit time. {\color{mid}{Same arithmetic operations are applied to these four data. To do this, four}} double precision data must be prepared on SIMD register. {\color{mid}{An AVX2 vector loading instruction can load four double precision data from a continuous memory location in one unit time. But four scalar loading instructions are needed for discontinous memory location. It is unable}} to compute between data within SIMD register}}. The \sout{computational} performance {\color{blue}{may}} increase four times \sout{, not the memory performance.}
+
+OpenMP \cite{omp} can be used for a multicore environment. {\color{mid}{OpenMP allows thread-level parallelism on shared memory. Thread is a separate process with its own instructions and data. The loop is parallelized by putting pragma sentence above it. By processing the divided loops with different cores simultaneously, the performance per unit time increases by the number of cores. {\color{mur}{\sout{We use block scheduling as the way to divide loop.} There are two types to devide loop, block and cyclic scheduling \cite{AIPP}.}} }} \sout{The memory performance and the computational performance per each core do not change, but it enables to process using multicore.} \sout{For nested-loop operations, we should discuss which loops to parallelize. }
+%Note that the performance (= the number of floating-point operations / execution time [Gflops/sec]) is distinguished between the computational performance [Gflops/sec] and memory performance [Gbytes/sec].
+
+We assume the memory references should be the column order, since MATLAB stores data in column wise. Unit stride memory reference can use the data read by cache line of length of 64 bytes; however, when reading data $N$-stride ($N$ is longer than the length of cache line), each data is read from memory to the register \cite{HPC}. {\color{blue}{(Unit stride ~ 以降はページ数・レイアウトによっては削除)}}
+%When this is used for unit stride memory references, data transfer between cache and register can be reduced. Although it is slightly faster than utlizing cache line, the speedup for memory references is small. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The performance {\color{blue}{[Gflops/sec] is defined as the number of floating-point operations [flops] / the execution time [sec]. It is restricted by the upper bound of performance that is defined as min(Computational performance [Gflops/sec], Memory performance [Gbytes/sec] $\times$ Operational intensity [flops/bytes])}}  \sout{(= the number of floating-point operations / the execution time [Gflops/sec]) is determined by the memory performance [Gbytes/sec] and the computational performance [Gflops/sec].} {\color{mur}{The}} {\color{mid}{computational performance is defined by the product of the clock frequency for CPU, 2 (if use FMA), 4 (if use AVX2), and the number of cores (if use OpenMP). {\color{mur}{The}} memory performance is defined by the product of the clock frequency for memory, the number of channels, and 8 (data is 8 bytes).}}
+
+For the experiment environment, in the case of single core, the peak computational performance is 5.8 Gflops/sec \sout{because there are two FPUs.} It \sout{increases to} {\color{blue}{is}} 23.2 Gflops/sec \sout{by} using AVX2. In the case of four cores with AVX2, it is 92.8 Gflops/sec.
+The {peak memory performance is 34.1 Gbytes/sec, because LPDDR3-2133 can handle 8-bytes data with 2,133 MHz of memory clock frequency and two channels. We used Intel Core i7 7820HQ, 2.9 GHz CPU and Intel compiler 18.0.3 with options -O2, -fma, -mavx, -fopenmp, and -fp-model precise.
+
+{\color{mur}{The}} {\color{blue}{operational intensity is defined as the number of floating-point operations [flops] / the number of memory references [bytes].}}
+Table \ref{opeData} shows the number of floating-point operations, memory references and operational intensity \cite{roof} \sout{which is floating-point operations per memory references.} {\color{mur}{The balance for the computational performance and the memory performance determinesr the factor of the upper bound of performance.}} {\color{mid}{The performance is bounded on memory performance when the operational intensity is 0.17 {\color{mur}{(=5.8/34.1)}} or lower for without parallelization, 0.68 {\color{mur}{(=23.2/34.1)}} or lower for using AVX2, 0.68 {\color{mur}{(=23.2/34.1)}} or lower for using OpenMP, and 2.72 {\color{mur}{(=92.8/34.1)}} or lower when using both AVX2 and OpenMP. When the operational intensity is higher than those values, the performance is bounded on the computational performance.}} \sout{By comparing the ratio of the computational performance for the memory performance and operational intensity, the bottleneck of the application can be predicted \cite{roof}. When operational intensity is higher than 0.17 flops/bytes (5.8/34.1) for single core processing, the execution time is bounded on the time for computation. When lower than 0.17, the execution time is bounded on the time for data transfer. }
+\sout{In processing of a single core without parallelization, the problem of DD arithmetic is not the number of memory references, but the number of floating-point operations, as shown in Table \ref{opeData}.}
+
+% \begin{table}[htbp]
+% \centering
+% \footnotesize
+% \caption{The number of floating-point operations [flops], the number of memory references [bytes], and operational intensity [flops/bytes] for DD arithmetic. Let $ \alpha \in \mathbb{R},\ \bm{x},\ \bm{y},\ \bm{z}\in \mathbb{R}^{N},\ A,\ B,\ C \in \mathbb{R}^{N\times N}$.(replace)}
+% \label{opeData}
+% \begin{tabular}{l||r|r|r}
+% \hline
+%     & \multicolumn{1}{c}{floating-point operations}   & \multicolumn{1}{|c|}{memory references}  & \multicolumn{1}{c}{operational intensity}                                    \\ \hline \hline
+% $\bm{y} = \alpha\bm{x}$ & $7N^{\ } $     & $2N \times 2$$\times$8      &7/32  $ \simeq$	0.22       \\ \hline
+% $\bm{z} = \bm{x} + \bm{y}$ & $11N^{\ } $     & $3N \times 2$$\times$8   &11/48  $\simeq$	0.23            \\ \hline
+% %$\bm{z} = \alpha\bm{x} + \bm{y}$ & $18N^{\ } $     & $3N \times 2$$\times$8  &18/48  $\simeq$	0.38            \\ \hline
+% $\alpha  = \bm{x}^T\bm{y}$& $18N^{\ }$    &$ 2N  \times 2$$\times$8           &18/32  $\simeq$	0.56          \\ \hline
+% $\bm{y} = A\bm{x}$ & $18N^2$ &$ (N^2+2N) \times 2$$\times$8 &18/16 $\simeq$	1.13 \\ \hline
+% $C = AB$  & $18N^3$  & $3N^2 \times 2$$\times$8    &$O(N)$\\ \hline
+% \end{tabular}
+% \end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{{\color{mid}{The number of floating-point operations (flop) [flops], the number of memory references [bytes], operational intensity (O. I.) [flops/bytes], memory requirementの単位は何だろう and performances for DD vector operations when $N$ is 4,096,000. }}}
+\label{vec}
+\footnotesize	
+\begin{tabular}{r||r|r|r|r|r|r|r|r}
+  \hline
+                     & \begin{tabular}[c]{@{}c@{}}{\color{mid}{flop}}\end{tabular} & \begin{tabular}[c]{@{}c@{}}memory\\ references\end{tabular} & \begin{tabular}[c]{@{}c@{}}{\color{mid}{O. I.}}\end{tabular} & \begin{tabular}[c]{@{}c@{}}memory\\ requirement\end{tabular} & {\color{mur}{Serial}}                   & AVX2                     & OpenMP                   & \begin{tabular}[c]{@{}c@{}}AVX2\&\\ OpenMP\end{tabular} \\ \hline \hline
+                      $\bm{y} = \alpha\bm{x}$ & 7$N$                                                                  & 2$N$*16                                                       & 0.22                                                            & 2$N$                                                           & 1.19                     & 1.51                     & 1.30                     & 1.25                                                    \\ \hline
+                      $\bm{x} = \alpha\bm{x}$& 7$N$                                                                  & 2$N$*16                                                       & 0.22                                                            & $N$                                                            & 2.05                     & 4.78                     & 5.03                     & 5.21                                                    \\ \hline
+                      $\bm{z} = \bm{x}+\bm{y}$& 11$N$                                                                 & 3$N$*16                                                       & 0.23                                                            & 3$N$                                                           & 1.96                     & 2.05                     & 2.15                     & 1.67                                                    \\ \hline
+                      $\bm{y} = \bm{x}+\bm{y}$& 11$N$                                                                 & 3$N$*16                                                       & 0.23                                                            & 2$N$                                                           & 4.10                     & 5.18                     & 5.56                     & 5.43                                                    \\ \hline
+                      $\bm{z} = \bm{x}+\bm{x}$& 11$N$                                                                 & 2$N$*16                                                       & 0.34                                                            & 2$N$                                                           & 2.25                     & 2.25                     & 2.15                     & 2.25                                                    \\ \hline
+                      $\bm{x} = \bm{x}+\bm{x}$& 11$N$                                                                 & 2$N$*16                                                       & 0.34                                                            & $N$                                                            & 4.10                     & 8.19                     & 7.51                     & 8.34                                                    \\ \hline
+                      $\bm{z} = \alpha\bm{x}+\bm{y}$& 18$N$                                                                 & 3$N$*16                                                       & 0.38                                                            & 3$N$                                                           & 2.23                     & 3.21                     & 3.35                     & 2.73                                                    \\ \hline
+                      $\bm{y} = \alpha\bm{x}+\bm{y}$& 18$N$                                                                 & 3$N$*16                                                       & 0.38                                                            & 2$N$                                                           & 2.84                     & 7.37                     & 8.57                     & 8.78                                                    \\ \hline
+                      $\alpha = \bm{x}^T\bm{y}$& 18$N$                                                                 & 2$N$*16                                                       & 0.56                                                            & 2$N$                                                           & 2.30                     & 7.76                     & 8.19                     & 14.18                                                   \\ \hline
+                      $\alpha = \bm{x}^T\bm{x}$ & 18$N$                                             &$N$*16                               & 1.13                                        & $N$                                     &2.30 & 8.67 & 8.38 & 26.33                  \\ \hline            
+\end{tabular}
+\end{table}
+
+\section{Experiment for Matrix and Vector Operations in DD arithmetic TODO. グラフ・表に対応した説明に直す}
+\subsection{DD Vector Operations}
+{\color{mid}{Table \ref{vec} shows the result for the experiment when the dimension for vectors is 4,096,000.}} {\color{blue}{ {\color{mid}{The}} operational intensity {\color{mid}{determines}} the upper bound of performance. {\color{mid}{{\color{mur}{The DD vector}} \sout{All of the} operations become being bounded on memory {\color{mur}{performance}} when using {\color{mur}{both}} AVX2 and OpenMP because the operational intensities are lower than 2.72.}} When the operational intensity is the same, the performance is higher for smaller memory requirement. When the left hand {\color{mid}{side}} is {\color{mid}{a}} new variable, the performance {\color{mid}{tends}} to be low. It is also important for high performance to reduce the number of memory references and the memory requirements.}}{\color{mur}{だいたい何パーセントか書く}}
+\sout{Vector operations are single loop processing. }
+
+
+When we compute the inner product with AVX2, we must sum up the four SIMD register elements after the loop, three scalar additions are needed.
+In the case of using OpenMP, since we must sum up the $p$ thread elements after the loop, $p-1$ scalar additions are needed.
+When using both AVX2 and OpenMP, each thread \sout{processes} {\color{mid}{compute a partial sum with}} a vector of length $N/p$ using AVX2. {\color{mid}{\sout{then}}} {\color{blue}{\sout{We implement from partial sum to groval sum.}}}{\color{mur}{Then, this partial sums are computed to groval sum.}}
+%The workload of loading data from memory is almost equal to AVX2 and OpenMP, because AVX2 loads four data per loading, and each core of OpenMP accesses $N/4$ of data.
+\sout{For vector of order $N$ = 4,096,000,} {\color{mid}{In table \ref{vec},}} the performance of $\alpha  = \bm{x}^T\bm{y}$ is 2.30 Gflops/sec for serial computing, 7.76 Gflops/sec for AVX2, and 8.57 Gflops/sec for four threads OpenMP. When using AVX2 and OpenMP, the performance is 14.18 Gflops/sec.
+The performance of $\alpha = \bm{x}^T\bm{x}$ is 26.33 Gflops/sec, which having half of memory references. 
+When using AVX2 and OpenMP, {\color{mur}{the computational process is faster than data supply process, so the number of memory references is the problem.}} {\color{mid}{\sout{the data supply do not finish faster than the computation, so CPU must wait the data.}}}
+\sout{Since both inner products are bounded on the computational performance, they have the same tendency of the performance as 2.30 Gflops/sec for serial computing, 8.67 Gflops/sec for AVX2, and 8.38 Gflops/sec for OpenMP in Figure \ref{xdot}.}{\color{mur}{As shown in Figure \ref{xdot}, the performances for $\bm{x}^T\bm{y}$ and $\bm{x}'\bm{x}$ are almost the same for serial, using AVX2, and using OpenMP. This is because they are being bounded on the computational performance at that conditions, so the number of floating-point operations is the problem. }}
+%The performance levels is 15\% (14.08/92.8) that is lower than the target of 65\% due to memory references.
+\sout{For memory bounded operations, the upper bound of performance can be predicted by the roofline model \cite{roof}. The upper bound is the product of memory performance and operational intensity in Table \ref{opeData}, i.e. the performance levels is 74\% (14.08/(34.1*0.56)).} {\color{mid}{The performance for using AVX2 and OpenMP is 74\% (14.18/(34.1*0.56)) of the upper bound of performance. (内積の段落。長いから表からわかる数値は改めて書かずに済むような文章に書き換える？)}}
+
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=10cm]{20191009dot.eps}
+    \caption{Performances [Gflops/sec] of inner products $\bm{x}^T\bm{y}$ and $\bm{x}^T\bm{x}$.}
+    \label{xdot}
+  \end{center}
+\end{figure}
+
+\sout{Since the operational intensity of scalar multiplication of vector (0.22) and vector addition (0.23) are smaller than that of inner product (0.56), we can predict the upper bound of these performances are half or less than that of inner product. As shown in Figure \ref{xd}, these operations have little improvement in performance. }
+
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=8.1cm]{20190730vec1.eps}
+    \caption{図は資料20190930\_matomeのp13からp16の図でAVX2+OpenMPのケースを追加したもの(y=x+y, z = x+y, y=ax+y, z=ax+y, (y = ax, x = axも追加する)を比較)を載せる、軸も変える}
+    \label{xd}
+  \end{center}
+\end{figure}
+
+For {\color{mid}{$\bm{y} = \alpha\bm{x}$, $\bm{z} = \bm{x}+\bm{y}$, and $\bm{z} = \alpha\bm{x}+\bm{y}$,}} they require to allocate new memory address for output vector before calling outer C function. This process would become degrade the performance \sout{level} because roofline model do not consider it.
+{\color{blue}{When the number of {\color{mid}{a}} memory references are the same, the execution time would become the same because of being bounded on memory performance. Since $\bm{z} = \alpha\bm{x}+\bm{y}$ and $\bm{z} = \bm{x}+\bm{y}$ are being bounded on memory performance for using AVX2 and OpenMP, the execution time would become the same as 0.027 sec for $\bm{z} = \alpha\bm{x}+\bm{y}$ and 0.027 sec for $\bm{z} = \bm{z} = \bm{x}+\bm{y}$. It is possible to compute $\bm{z} = \alpha\bm{x}+\bm{y}$ instead of computing $\bm{y} = \alpha\bm{x}$ and $\bm{z} = \bm{x}+\bm{y}$}} {\color{mur}{within the same execution times.}} {\color{mid}{($\bm{z} = \bm{x}+\bm{y}$, and $\bm{z} = \alpha\bm{x}+\bm{y}$の段落)}}
+\sout{Even OpenMP is used, the situation is the same. The operational intensity of axpy is 0.38 and this value is higher than that of scalar multiplication of vector and vector addition. When using AVX2, we can estimate that the upper bound of performance of axpy is higher. For the vector of order $N$ = 4,096,000, the execution time of axpy is 0.033 sec when serial computing. This time is longer than 0.023 sec for that of the vector addition. However, when we use AVX2, the execution time of axpy is 0.023 sec and that of vector addition is 0.022 sec, as almost the same. Since the workload of memory reference is same for these two operations, the time for computation is reduced by AVX2.} (blue色で追加した、When the number of memory references are the same, the execution time would become xxxの文章と主張したいことが同じであるため削除)
+
+
+
+\subsection{DD Matrix-Vector Multiplication}
+\sout{$y_{i} = \sum a_{i,j}x_{j}$ indicates the matrix-vector multiplication. }
+\sout{Matrix-vector multiplication can be implemented in two ways whether reading memory is in the row order or column order. The algorithm is differed, as shown in Figure \ref{figimpAVX} of PDOT and PB. We use letter P to represent the shape of Panel, and letter B to represent the shape of Block \cite{goto}. Hereafter, the loops in the program is called first, second, and third from the innermost.}
+
+{\color{mid}{Matrix-vector multiplication $y_{i} = \sum a_{ij}x_{j}$ has two types, PB and PDOT. 
+The memory references for the matrix $a$ is column order in PB, and row order in PDOT.
+Since MATLAB store data in column major order, PB is unit stride access.}}
+
+\subsubsection{AVX2}
+Since matrix-vector multiplication has nested loops, we should consider the way to use AVX2. 
+The four ways of using AVX2 are shown in Figure \ref{figimpAVX}. 
+Here, the letter {\it v} means vector instruction {\color{mid}{and all of the vairables in Figure \ref{figimpAVX} are DD numbers. The $vload$ is loading four continuous data as $a(i,j)$ to $a(i,j+3)$ in PDOT$_{\rm{PB}}$ or $x(j)$ to $x(j+3)$ in PDOT$_{\rm{PDOT}}$. The $vmuladd(vy,va,vx)$ is multiply-add arithmetic $vy + va * vx$ and it costs 18 times of double precision operations. The $vmul(va,vx)$ is multiplication arithmetic $va * vx$ and it costs 7 times of double precision operations. The $sum(vy)$ is summing up data in SIMD register and it costs 11$\times$3 times of double precision operations}}  \sout{ and letter {\it s} means scalar instruction. }
+\sout{Blue words are the instructions that can use vector instructions. 
+Red words are the instructions that cannot use vector instructions or overheads.}
+TODO.Figure4を受けての説明を足す(AVX2のloadが使える、使えない)
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=8.4cm]{20191017.eps}
+    \caption{Algorithm for using AVX2 to PDOT or PB for $\bm{y} = A\bm{x}$.}
+    \label{figimpAVX}
+  \end{center}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \caption{{\color{mid}{Difference in the instructions of the way to implementing AVX2 for $\bm{y} = A\bm{x}$ and performances [Gflops/sec].}}}
+  \label{mv}
+  \footnotesize	
+  \begin{tabular}{l||l|l|l|c|r|c|r}
+    \hline
+           & \multicolumn{1}{c|}{Computation}                                                                                               & \multicolumn{1}{c|}{Load}                                                                                          & \multicolumn{1}{c|}{Store}     & Before                   & \multicolumn{1}{c|}{AVX2} & OpenMP                    & \multicolumn{1}{c}{\begin{tabular}[c]{@{}c@{}}AVX2\&\\ OpenMP\end{tabular}} \\ \hline
+  PDOT     & $N^2$ muladd                                                                                                   & \begin{tabular}[c]{@{}l@{}}{\color{mid}{2$N^2$}} load\end{tabular}                     & $N$ store                       & \multicolumn{1}{r|}{1.25} & \multicolumn{1}{c|}{-}    & \multicolumn{1}{r|}{4.96}  & \multicolumn{1}{c}{-}                                                       \\ \hline
+  PB       & $N^2$ muladd                                                                                                   & \begin{tabular}[c]{@{}l@{}}$N$ load\\ {\color{mid}{2$N^2$}} load\end{tabular}                             & $N^2$ store    & \multicolumn{1}{r|}{3.55} & \multicolumn{1}{c|}{-}    & \multicolumn{1}{r|}{12.77} & \multicolumn{1}{c}{-}                                                       \\ \hline
+  PDOT$_{\rm{PB}}$   & $N^2$/4 vmuladd                                                                                                & \begin{tabular}[c]{@{}l@{}}$N$/4 setzero\\ $N^2$/4 vload\\ $N^2$/4 bcast\end{tabular} & $N$/4 vstore                    & -                        & 4.96                     & -                         & 10.58                                                                       \\ \hline
+  PDOT$_{\rm{PDOT}}$ & \begin{tabular}[c]{@{}l@{}}$N^2$/4 vmuladd\\ $N$ sum\end{tabular}                                                & \begin{tabular}[c]{@{}l@{}}$N$ setzero\\ $N^2$ load\\ $N^2$/4 vload\end{tabular}                  & $N$ store                       & -                        & 1.64                     & -                         & 6.11                                                                        \\ \hline
+  PB$_{\rm{PB}}$     & $N^2$/4 vmuladd                                                                                                & \begin{tabular}[c]{@{}l@{}}$N$ bcast\\ {\color{mid}{$N^2$/2}} vload\end{tabular}     & $N^2$/4 vstore & -                        & 11.97                    & -                         & 25.63                                                                       \\ \hline
+  PB$_{\rm{PDOT}}$   & \begin{tabular}[c]{@{}l@{}}$N^2$/4 vmul\\ $N^2$/4 sum\\ $N^2$/4 add\end{tabular} & \begin{tabular}[c]{@{}l@{}}$N$/4 vload\\ {\color{mid}{5$N^2$/4}} load\end{tabular}       & $N^2$/4 store  & -                        & 3.89                     & -                         & 14.72           \\ \hline                                                           
+  \end{tabular}
+  \end{table}
+
+\sout{Table 2 shows the number of instructions in the loops. There is two advantages in PDOTPB and PBPB, because the number of operations is reduced by using vmuladd instead of smuladd, and the workload of loading is reduced by using vload instead of sload. Although PDOTPDOT can use vmuladd, there is no advantages in PDOTPDOT and PBPDOT, because the number of sload is increased and cannot use vstore due to having synchronization (sadd). For PBPDOT, the synchronization (sadd) is serious, because it is computed during the first loop.}
+
+% \begin{table}[htbp]	
+%   \footnotesize	
+%   \caption{Difference in the instructions of the way to implementing AVX2 for $\bm{y} = A\bm{x}$. Within the round brackets represent the number of double precision instructions for an instruction. }	
+%   \footnotesize	
+%   \begin{tabular}{l||c|c|c||c|c|c}	
+%   \hline	
+%           &PDOT&PDOT$_{\rm{PB}}$ & PDOT$_{\rm{PDOT}}$ &PB& PB$_{\rm{PB}}$ & PB$_{\rm{PDOT}}$              \\ \hline\hline	
+%           {\it sload} (2)   & &     &    & 1 &     &                        \\ 	
+%           {\it broadcast} (2)  & &     &    &   & 1   &                        \\ 	
+%           {\it vload} (2)  & &     &    &   &     & 1                     \\ \hline\hline	
+  
+  
+%           {\it sload} (2)  &2&     & 4  & 2 &     & 5                  \\ 	
+%           {\it vload} (2)  & &1    & 1  &   & 2   &                            \\   	
+%           {\it broadcast} (2)  & &1    &    &   &     &                            \\      \hline      	
+  
+%           {\it smuladd} (18) &1&     &    & 1 &     &      \\                         	
+%           {\it vmuladd} (18) & &1    & 1  &   & 1   &                           \\    	
+%           {\it sadd}  (11)  & &     &    &   &     & 4     \\ 	
+%           {\it vmul}  (7)  & &     &    &   &     & 1                          \\  \hline  	
+  
+%           {\it sstore} (2)  & &     &    & 1 &     & 1                          \\      	
+%           {\it vstore} (2) & &     &    &   & 1   &                            \\ \hline\hline	
+  
+%           {\it sadd}  (11)  & &     & 3  &   &     &        \\ \hline	
+%           {\it sstore} (2) &1&     & 1  &   &     &                        \\	
+%           {\it vstore} (2) & &1    &    &   &     &                       \\  \hline	
+%   \end{tabular}	
+%   \label{maintab}	
+%   \end{table}
+
+  {\color{blue}{{\color{mid}{It is clear that unit}} stride access is required to achieve high performance.
+It is important to use the vmuladd instruction instead of muladd to increase performance four times.
+  The summing up {\color{mid}{data within SIMD register is an}} overhead.
+  To take advantage of the vmuladd instruction, it is important to use the vload and vstore instructions.}}
+
+% \begin{figure}[htbp]
+%   \begin{center}
+%     \includegraphics[clip,width=10cm]{20191011avx2.eps}
+%     \caption{Performances [Gflops/sec] using AVX2 \sout{to PDOT and PB} for $\bm{y} = A\bm{x}$.{\color{blue}{AVX2なしとキャプションに記入{\color{mid}{削除}}}}}
+%     \label{figMV}
+%   \end{center}
+% \end{figure}
+
+% \begin{table}[htbp]
+% \centering	
+% \footnotesize	
+% \caption{Performances [Gflops/sec] using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.{\color{mid}{削除}} }	
+% \label{MVavx}	
+% \begin{tabular}{l||c|cc||c|cc}	
+% \hline	
+%                        & PDOT    & PDOT$_{\rm{PB}}$       & PDOT$_{\rm{PDOT}}$      & PB   & PB$_{\rm{PB}}$        & PB$_{\rm{PDOT}}$       \\ \hline	
+% \multirow{1}{*}{500}   & 2.06  & 5.81  & 5.40 & 3.02 & 7.42  & 3.18 \\  	
+% \multirow{1}{*}{1,000} & 1.60  & 5.01  & 2.19 & 3.40 & 10.24 & 3.69 \\	
+% \multirow{1}{*}{2,500} & 1.25  & 4.96  & 1.64 & 3.55 & 11.97 & 3.89 \\ \hline	
+% \end{tabular}	
+% \end{table}
+
+TODO. 冗長な説明を直す(パワポのp20の説明に直す)
+\sout{Using AVX2 in the column order as PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$ are faster than using AVX2 in the row order as PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$, because reading data in column order can be used $vload$.}
+\sout{For PDOT$_{\rm{PB}}$ and PB$_{\rm{PB}}$, the performance is nearly four times higher than the without using AVX2, because the time for computation is reduced by $vmuladd$. Especially, PB$_{\rm{PB}}$ is more higher because of unit stride memory references. Since PDOT$_{\rm{PDOT}}$ uses $vmuladd$, performance is increased when the order of matrix $N$ = 500. For PB$_{\rm{PDOT}}$, the performance is increased little due to $sload$ and $sadd$ for all of the $N$.}
+\sout{For a problem the execution time is bounded on the time for the computation, the performance can be improved when the number of floating-point operations can be reduced by AVX2 $vmuladd$ instruction without overhead such as using $sadd$ and $sload$ instruction.}
+
+\subsubsection{AVX2 + OpenMP}
+\sout{We do not parallelize first loop, because unit stride memory reference is disturbed. When the pragma directive is used for the second loop of DD matrix-vector multiplication of the order $N$ for PDOT, PDOT$_{\rm{PB}}$ and PDOT$_{\rm{PDOT}}$, each thread computes the vector of the order $N/p$ respectively. These vectors are merged into the vector order of $N$ vertically. In this case, synchronization is not required. For PB, PB$_{\rm{PB}}$, and PB$_{\rm{PDOT}}$, each thread computes the partial sum of the vectors of order $N$ respectively. The result is obtained by summing up of partial sums of $p$ worker vectors. This summing up requires $p-1$ vector additions.}
+
+{\color{mid}{We consider which loop of PB in the code of Figure \ref{mv} to parallelize by using OpenMP. Since the index to store $\bm{y}$ is $i$, summing up the partial sum of each thread is required to parallelize the loop of the index $j$. However, parallelizing the outer loop was better in the performance. For $N$ = 2,500, the performance of PB with parallelizing the loop of the index $j$ is 13.07 and that of $i$ is 4.79, so we parallelize the loop of the index $j$. As a result, the performance for using OpenMP to PB$_{\rm{PB}}$ is 25.63 and it is faster almost 7.2 times than before parallelization.}}
+{\color{magenta}{\color{mid}{As shown in Figure \ref{figMM},}} even using AVX2 and OpenMP, the execution time cannot be reduced 16 times (AVX2 $\times$ 4-core) comparing {\color{mid}{to without parallelization}}. 
+Since the operational intensity of matrix-vector multiplication is 1.13 and it is lower than 2.7 (=92.8/34.1), matrix-vector multiplication would become being bounded on memory when using AVX2 and OpenMP.
+Comparing with the upper bound of performance, the performance levels when $N$ = 2,500 is {\color{mid}{67\% (25.63/(34.1*1.13)).}}}}
+
+% When the pragma directive is used for the second loop of DD matrix-vector multiplication of the order $N$ for PDOT, PDOT$_{\rm{PB}}$ and PDOT$_{\rm{PDOT}}$, each thread computes the vector of the order $N/p$ respectively. These vectors are merged into the vector order of $N$ vertically. In this case, synchronization is not required. For PB, PB$_{\rm{PB}}$, and PB$_{\rm{PDOT}}$, each thread computes the partial sum of the vectors of order $N$ respectively. The result is obtained by summing up of partial sums of $p$ worker vectors. This summing up requires $p-1$ vector additions.
+
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=10cm]{20191016mv.eps}
+        \caption{Performances [Gflops/sec] using OpenMP, and using AVX2 for $\bm{y} = A\bm{x}$.}
+    \label{figMM}
+  \end{center}
+\end{figure}
+
+% \begin{table}[htbp]	
+%   \centering	
+%   \footnotesize	
+%   \caption{Performances [Gflops/sec] using OpenMP, and using AVX2 to PDOT and PB for $\bm{y} = A\bm{x}$.{\color{mid}{削除}} }	
+%   \label{MVomp}	
+%   \begin{tabular}{l||c|cc||c|cc}	
+%   \hline	
+%                          & PDOT    & PDOT$_{\rm{PB}}$       & PDOT$_{\rm{PDOT}}$      & PB   & PB$_{\rm{PB}}$        & PB$_{\rm{PDOT}}$       \\ \hline	
+%   \multirow{1}{*}{500}   & 5.36 & 10.13 & 9.60 & 6.90 & 11.29   & 7.44  \\  	
+%   \multirow{1}{*}{1,000} & 5.36 & 10.34 & 7.20 & 10.50 & 22.31 & 11.46  \\	
+%   \multirow{1}{*}{2,500} & 4.96 & 10.58 & 6.11 & 12.77 & 25.63  & 14.72 \\ \hline	
+%   \end{tabular}	
+%   \end{table}
+
+\sout{As shown in Table \ref{MVomp}, the performance is improved by OpenMP, and PDOT and PB using OpenMP individually have better performance than using AVX2 individually to PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$.}
+\sout{By comparing the ratio of the computational performance by the memory performance and operational intensity, the operational intensity of matrix-vector multiplication is 1.13 and it is lower than 2.7 (=92.8/34.1), we can predict that this operation is bounded on memory performance.}
+\sout{Therefore, even if the amount of computation can be reduced to 1/4 by using AVX2, the execution time can not be reduced due to memory references. }
+\sout{In fact, when AVX2 is used with OpenMP, the performance do not increase four times, as shown in Table \ref{MVomp}.}
+\sout{For memory bounded operations, the upper bound of performance can predict by the product of memory performance and operational intensity, i.e. the performance levels is 67\% (25.63/(34.1*1.13).}
+% As shown in Table \ref{MVomp}, the performance is improved by OpenMP, and PDOT and PB using OpenMP individually have better performance than using AVX2 individually to PDOT$_{\rm{PDOT}}$ and PB$_{\rm{PDOT}}$. 
+
+% \begin{table}[htbp]
+%   \centering
+%   \caption{Execution time, Speed-up ratio, Performance, Upper bound of performance, and performance level for PB$_{\rm{PB}}$ and the outer loop parallelize for $N$ = 2,500}
+%   \label{tabMV}
+%   \small
+%   \begin{tabular}{l|rrrrr}
+%     \hline
+%                                                         & \begin{tabular}[c]{@{}c@{}}Execution Time\\ {[}sec{]}\end{tabular} & Speed-up & \begin{tabular}[c]{@{}c@{}}Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Upper bound of\\ Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Performance \\ level {[}\%{]}\end{tabular} \\ \hline
+%   Serial                                                & 0.0316                                                             & 1.00     & 3.55                                                                   & 5.8                                                                                     & 61                                                                    \\ \hline
+%   AVX2                                                  & 0.0094                                                             & 3.37     & 11.97                                                                  & 23.2                                                                                    & 52                                                                    \\ \hline
+%   OpenMP                                                & 0.0086                                                             & 3.68     & 13.07                                                                  & 23.2                                                                                    & 56                                                                    \\ \hline
+%   \begin{tabular}[c]{@{}l@{}}AVX2\\ OpenMP\end{tabular} & 0.0044                                                             & 7.20     & 25.57                                                                  & 38.5                                                                                    & 66                                                                   \\ \hline
+%   \end{tabular}
+%   \end{table}
+
+
+
+\subsection{DD Matrix-Matrix Multiplication {\color{blue}{ノータッチ}}}
+\sout{AVX2 can be used to the matrix-vector multiplication and the performance is improved when repeating it. The matrix multiplication ($y_{ij}=\sum a_{jk}x_{kj}$) with index {\it j}-{\it k}-{\it i} order structure has no synchronizations and unit stride memory reference. This structure is the same structure as matrix-vector multiplication. For other structures, when the index of the first loop is {\it k} and {\it j}, reading the data of $A$ and $X$ is non-unit stride memory references, respectively. For the {\it k}-{\it j}-{\it i} order structure, synchronization for OpenMP is required. For this reasons, we use the {\it j}-{\it k}-{\it i} order structure. We then discuss which loops to parallelize for this structure. Parallelizing the third loop does not require synchronization, but parallelizing the second loop requires synchronization.}
+\sout{The result of parallelizing the third loop and the second loop of matrix multiplication of {\it j}-{\it k}-{\it i} order structure for PB$_{\rm{PB}}$ is shown in Figure \ref{figMM3}.}
+
+TODO. ループのインデックスの順番、どのループをOpenMPで並列化するか。について説明を追加(パワポp24)
+The matrix multiplication ($y_{ij}=\sum_{ijk} a_{jk}x_{kj}$) has six types of algorithms depending on the order of index {\it j}-{\it k}-{\it i}.
+\begin{table}[htbp]
+  \centering
+  \caption{Performance of matrix multiplication when $N$ is 2,500 depending on the order of index.}
+  \label{mmindx}
+  \small
+  \begin{tabular}{l|cccccc}
+    \hline
+  Index of Outer loop          & $i$    & $i$    & $j$    & $j$    & $k$    & $k$    \\
+  Index of Inner loop          & $k$    & $j$    & $i$    & $k$    & $j$    & $i$    \\
+  Index of Inner most loop     & $j$    & $k$    & $k$    & $i$    & $i$    & $j$    \\
+  Performance {[}Gflops/sec{]} &  0.80  &  0.81  &  0.89  &  3.62  &  3.52  & 0.83
+  \\ \hline
+  \end{tabular}
+\end{table}
+
+When the index of inner most loop is $i$, we can use unit stride access in MATLAB and result in higher performance, that is 3.6 Gflops/sec.
+When using AVX2 for the coulumn to load four data of matrix continuously, the performance for matrix multiplication of $j$-$k$-$i$ order and that of $k$-$j$-$i$ order are almost the same.
+When $N$ = 2,500, the formar is 12.00 Gflops/sec and the latter is 12.27 Gflops/sec.
+For using OpenMP, the performance for matrix multiplication with $N$ = 2,500 of $j$-$k$-$i$ order with the outer loop parallelism is 12.26 Gflops/sec
+and that of the inner loop parallelism is 11.93 Gflops/sec.
+As for the $k$-$j$-$i$ order, the performance of the outer loop parallelism is 6.87 Gflops/sec and the inner loop parallelsm is 11.78 Gflops/sec.
+The only case of using OpenMP to the outer loop for $k$-$j$-$i$ order is low performance, and the others are not differ.
+However, when using AVX2 and OpenMP, the performance of $j$-$k$-$i$ order with outer loop parallelism is the highest as in Figure \ref{figMM3}. 
+
+\begin{figure}[htbp]
+  \begin{center}
+    \includegraphics[clip,width=10cm]{20191009mm.eps}
+         \caption{Performances [Gflops/sec] using both AVX2 and OpenMP to the outer loop for $j$-$k$-$i$ order and $k$-$j$-$i$ order for $C = AB$.}
+    \label{figMM3}
+  \end{center}
+\end{figure}
+
+TODO. 一番性能が高いケースの行列積の傾向を表を使って説明し直す(パワポp29)
+\sout{For the case that matrix of order $N$ = 2,500, the performance of PB$_{\rm{PB}}$ is 42.98 Gflops/sec.}
+\sout{For the order of matrix of order $N$ = 560, the performance is peak, i.e. 57.31 Gflops/sec and the performance levels of 61.76\%. For the serial computing, the performance is 3.56 Gflops/sec.}
+\sout{The performance is from 40 Gflops/sec to 60 Gflops/sec when parallelizing third loop. However, when parallelizing second loop, the performance is from 30 Gflops/sec to 50 Gflops/sec. }
+\sout{Since, the operational intensity of matrix multiplication is too large as $O(N)$, the execution time is bounded on time for computation. For parallelizing third loop, the performance improve almost theoretically 16 times by utilizing both AVX2 and OpenMP.}
+\sout{For other operations such as vector operations and matrix-vector operations, the performances are not increased theoretically, because their operational intensity is lower than 2.7 (=92.8/34.1).}
+%The gap between peak and the performance for large matrix are increased comparing with without using OpenMP. %For matrix-vector multiplication, this gap is not appeared. The gap is appeared when without applying optimization of increasing data locality such as blocking.
+Table \ref{tabMM} shows the case of $j$-$k$-$i$ order with AVX2 for the column and OpenMP for the outer loop. 
+Since the operational intensity of matrix multiplication is too large as $O(N)$, the performance improved near 16 times (AVX2 x four-core) by utilizing both AVX2 and OpenMP in this way.
+
+% \begin{table}[htbp]
+%   \centering
+%   \caption{Execution time, Speed-up ratio, Performance, Upper bound of performance, and performance level for $j$-$k$-$i$ order of matrix multiplication for $N$ = 2,500}
+%   \label{tabMM}
+%   \small
+%   \begin{tabular}{l|rrrrr}
+%     \hline
+%                & \begin{tabular}[c]{@{}c@{}}Execution\\ Time {[}sec{]}\end{tabular} & Speed-up & \begin{tabular}[c]{@{}c@{}}Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Upper bound of\\ Performance\\ {[}Gflops/sec{]}\end{tabular} & \begin{tabular}[c]{@{}c@{}}Performance \\ level {[}\%{]}\end{tabular} \\ \hline
+%   Serial       & 88.78                                                              & 1.00     & 3.17                                                                   & 5.8                                                                                     & 55                                                                    \\ \hline
+%   AVX2         & 22.93                                                              & 3.87     & 12.27                                                                  & 23.2                                                                                    & 53                                                                    \\ \hline
+%   OpenMP       & 22.95                                                              & 3.87     & 12.26                                                                  & 23.2                                                                                    & 53                                                                    \\ \hline
+% \begin{tabular}[c]{@{}l@{}}AVX2 \&\\ OpenMP\end{tabular} & 6.54                                                               & 13.57    & 42.99                                                                  & 92.8                                                                                    & 46               \\ \hline                                                    
+%   \end{tabular}
+%   \end{table}
+
+\subsection{IEEE-style TODO. 主張をまとめ, 別紙で取捨の確認(パワポp46, p47あたり)}
+
+\subsection{Summary TODO. 文章の修正}
+\sout{For DD vector operations, the way to use AVX2 and OpenMP is one. When the operational intensity is low  such as vector addition and scalar multiplication of vector, the performance is increased little. However, for inner product which have more than twice of operational intensity, the performance is increased to almost the upper bound of 94\%. The upper bound is predicted by the roofline model and STREAM benchmark.}
+
+{\color{magenta}{Before offloading to outer C function, it is required to allocate memory address in MATLAB. 
+This overhead degrades some vector operations such as vector addition, scalar multiplication of vector, and axpy, which require output of vector. 
+This overhead cannot consider in the roof line model, so the performance levels are low. 
+Since the inner product is not require output of vector, its performance level is high when using the roof line model. 
+However, the performances for vector operations are low or modest, because their operational intensities are low, and being bounded on memory references.}}
+
+\sout{For DD matrix-vector operations that have nested loops, the way to use AVX2 and OpenMP should be considered. In order to achieve high performance by AVX2, it is necessary to avoid synchronization and using AVX2 loading instructions, not the set of scalar loading instructions. Using AVX2 in this way, the number of floating-point operations can be reduced almost 1/4, and the performance can be increased. Since the operational intensity is high as twice as inner product, the performance is increased to almost the upper bound of 85\% (これはstream benchmark) when using both AVX2 and OpenMP. }
+
+{\color{magenta}{As for DD matrix-vector operations, it is necessary for achieving high performance to use AVX2 loading / storing instructions instead of the set of scalar instructions. 
+Using AVX2 in this way, and using OpenMP to the outer loop, the performance can become the 66\% of the upper bound of performance.}}
+
+\sout{For DD matrix multiplication, the performance degraded after the peak, using both AVX2 and OpenMP are not enough to optimize. However, when using AVX2 in the effective way, the performance increases almost theoretically and the execution time is reduced, because its operational intensity is so high.}
+
+{\color{magenta}{For DD matrix multiplication, $j$-$k$-$i$ order of index, using AVX2 to load four continuous data, and using OpenMP to the outer loop is the best for MATLAB.
+At that condition, the performance increases almost 16 times and the execution time is reduced, because its operational intensity is so high.}}
+
+\section{Conclusion {\color{blue}{別紙で書き直す}}}
+\sout{In response to demands for ways to facilitate high-precision arithmetic with an interactive computing environment, we developed MuPAT on Scilab/MATLAB. MuPAT uses DD arithmetic that requires large number of floating-point operations. Executing DD arithmetic takes much time for computation. It is possible to offload to outer C function by MATLAB executable file and use FMA, AVX2, OpenMP supported by modern CPU. }
+
+In response to demands for ways to facilitate high-precision arithmetic with an interactive computing environment, 
+we developed MuPAT on Scilab/MATLAB. MuPAT uses DD arithmetic that requires large number of floating-point operations. 
+Executing DD arithmetic takes much execution time due to heavy computation.
+It is possible to offload to outer C function by MATLAB executable file and accelerate by FMA, AVX2, OpenMP which are supported by modern CPU. 
+
+Since FMA can reduce the number of floating-point operations, we assume to use FMA.  
+%For vector addition and scalar multiplication of vector, the operational intensities are low and the performance is not increased. Operational intensity of inner product is higher than these two vector operations and the performance levels become almost the upper bound of roofline model.
+For matrix-vector multiplication and matrix multiplication, there is some way to use AVX2 and OpenMP. 
+
+\sout{For using AVX2, when loading, computing, and storing is executed with four pack of double precision numbers, the performance is increased. }
+
+\sout{To execute AVX2 loading, computing, and storing instructions, we should avoid synchronization and avoid using four scalar loading instruction.}
+For AVX2, using vector loading instruction was the key for performance. 
+
+\sout{For using OpenMP, we should avoid synchronization and avoid disturbing unit stride memory references.}
+For OpenMP, performance is depending on the combinations of the order of index and the loop to parallelize.
+\sout{DD matrix-vector multiplcation and matrix multiplication can be implemented in these way. }
+
+
+%The performance levels of matrix-vector multiplcation become almost the upper bound of roofline model. That of matrix multiplication is lower, i.e. 60\%. 
+\sout{The innermost structures of inner products, matrix-vector multiplication, and matrix multiplication are the one multiply-and-add. MuPAT on Scilab is implemented these three operations into one as matrix multiplication routine. Since the way of implementation to increase the performance for these three operations are different, MuPAT on MATLAB is implemented as three different routines. There is the trade-off between high performance program and general purpose program.}
+
+The inner products, matrix-vector multiplication, and matrix multiplication require the one multiply-and-add operation.
+MuPAT on Scilab is implemented these three operations as one matrix multiplication routine. 
+Since the way of implementation to increase the performance for these three operations are different as discribed in the paper, 
+MuPAT on MATLAB is implemented as different routines. 
+%For matrix-vector multiplication and vector operations, the operational intensities are not enough to speed up theoretically when using AVX2 and OpenMP. 
+
+The effectiveness of AVX2 and OpenMP is depending on the operational intensity. 
+\sout{Although the performance become almost the upper bound, it does not mean that the execution time is reduced theoretically. Reducing the number of memory references and increasing the number of floating-point operations let the operational intensity become high. For DD arithmetic, using large routines such as axpy and using IEEE-style can increase the operational intensity. As a result, the performance can be increased with almost the same execution time before increasing the operational intensity. }
+
+As the case of vector addition and axpy, or Cray-style and IEEE-sytle of matrix-vector multiplication, when the operation is being bounded on memory and the number of memory references are the same, 
+the execution time become almost the same even the number of floating-point instruction is different. 
+When the operational intensity is high, the effectiveness of AVX2 and OpenMP is also high for the operations that is being bouned on memory.
+
+\sout{Even the DD arithmetic, matrix and vector operations are bounded on the memory performance except for matrix multiplication. Recent CPUs can hide the computational workload of these operations in DD arithmetic by using FMA, AVX2, and OpenMP. The next problem for some matrix and vector operations in DD arithmetic is the number of memory references. }
+% Even the DD arithmetic, matrix and vector operations are bounded on the memory performance except for matrix multiplication. Recent CPUs can hide the computational workload of these operations in DD arithmetic by using FMA, AVX2, and OpenMP. The next problem for some matrix and vector operations in DD arithmetic is the number of memory references. 
+
+\section*{Acknowledgment}
+
+This research was supported by a grant from the Japan Society for the Promotion of Science (JSPS$\colon$JP17K00164).
+\begin{thebibliography}{99}
+\bibitem{QD} Y. Hida, X. S. Li, and D. H. Baily, QD arithmetic: algorithms, implementation, and application, Technical Report LBNL-46996, Lawrence Berkeley National Laboratory, 2000.
+
+\bibitem{saito} S. Kikkawa, T. Saito, E. Ishiwata, and H. Hasegawa, Development and acceleration of multiple precision arithmetic toolbox MuPAT for Scilab, {\it JSIAM Letters} {\bf 5} (2013), 9-12. 
+
+\bibitem{hota} MuPAT on MATLAB. {\tt https://www.ed.tus.ac.jp/1419521/index.html}
+
+\bibitem{DD} T. J. Dekker, A floating-point technique for extending the available precision, {\it Numerische Mathematik} {\bf 18} (1971), 224-242. 
+\bibitem{SIMD} Intel Intrinsics Guide. {\tt https://software.intel.com/sites/landingpage/IntrinsicsGuide/}
+\bibitem{omp} L. Dagum, and R. Menon, OpenMP: An Industry-Standard API for Shared-Memory Programming, {\it IEEE Computational Science \& Engineering} {\bf 5} (1998), 46-55. 
+
+\bibitem{ichi}I. Yamazaki, S. Tomov, T. Dong, J. Dongarra, Mixed-precision orthogonalization scheme and adaptive step size for improving the stability and performance of CA-GMRES on GPUs, in: Proceedings of International Meeting on High Performance Computing for Computational Science (VECPAR), 2014, 17-30.
+
+\bibitem{AIPP} Pacheco. P, An Introduction to Parallel Programming. {\it Morgan Kaufmann}, 2011.
+
+\bibitem{DDBLAS} X. S. Li et al., Design, Implementation and Testing of Extended and Mixed Precision BLAS, {\it ACM Transactions on Mathematical Software} {\bf 28} (2002), 152-205.
+
+\bibitem{HPC} K. Dowd and C. Severance, High Performance Computing, 2nd Edition, {\it O'Reilly}, 1998.
+
+\bibitem{roof} S. Williams, A. Waterman, and D. Patterson, Roofline: An insightful visual performance model for multicore architectures, {\it Communications of the ACM} {\bf 52} (2009),  65-76.
+
+\bibitem{goto} K. Goto, and R. van de Geijn, Anatomy of High-Performance Matrix Multiplication, {\it ACM Transactions on Mathematical Software} {\bf 34} (2008), Article 12 (25 pages).
+
+\end{thebibliography}
+\end{document}

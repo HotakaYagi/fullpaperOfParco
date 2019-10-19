@@ -1,0 +1,68 @@
+\documentclass{IOS-Book-Article}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{amsfonts}
+\usepackage{mathptmx}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{ulem}
+\usepackage{setspace}
+\usepackage{mathptmx}
+\usepackage{listings}
+\usepackage[dvipdfmx]{color}
+\pagestyle{empty} 
+\def\hb{\hbox to 10.7 cm{}}
+\usepackage{here}
+\usepackage{fancybox,ascmac}
+\definecolor{mid}{rgb}{ .115, .66, .45}
+
+
+\def\keywords#1{\begin{center}{\bf Keywords}\\{#1}\end{center}} 
+\begin{document}
+\begin{center}
+  {\Large Conclusion ver 1, 2019 10/18}
+\end{center}
+\pagestyle{plain}
+
+\section{Conclusion}
+In response to demands for ways to facilitate high-precision arithmetic with an interactive computing environment, we developed MuPAT on Scilab/MATLAB. MuPAT uses DD arithmetic that requires large number of floating-point operations. Executing DD arithmetic takes much {\color{mid}{execution}} time \sout{for computation} {\color{mid}{due to heavy computation.}}. It is possible to offload to outer C function by MATLAB executable file and use \sout{FMA,} AVX2, {\color{mid}{and}} OpenMP \sout{supported by modern CPU.} {\color{mid}{We compared the algorithms by considering how to parallelize by AVX2 and OpenMP, and analized the performances using the roofline model. As a result, we confirmed that most DD operations can perform 50\% to 70\% of the upper bound. However, the performances for some vector operations were 20\% of the upper bound due to the overhead for memory allocation. Nested loop operations such as matrix-vector multiplication and matrix multiplication should consider the way to use AVX2 and OpenMP to achieve high performance. For AVX2, using vector loading instruction was the key for the performance. For OpenMP, parallelizing the outer loop that do not require summing-up overhead was the key for the performance. The degree of acceleration was depending on the operational intensity. When the operational intensity is low, the operation is being bounded on memory performance and the degree of acceleration was limited. When the operational intensity is high, the operation is being bounded on computational performance and the operation can be faster near 4 (AVX2) $\times$ 4 (4-core). As a conclusion, MuPAT user can execute parallelized and fast high-percision matrix and vector operation without changing the code in the ordinal MATLAB environment.
+
+By the parallelization, the factor to determine the upper bound of performance is changed from the computational performance to the memory performance as the case for DD vector operations and DD matrix-vecrtor multiplication. 
+Under this condition, the execution time become almost the same for the operations that have the same number of memory references, even the number of floating-point instruction is different. We showed the cases of vector addition and axpy, and matrix-vector multiplication of Cray-style and IEEE-sytle. 
+It is possible to execute more operations within the same execution times or more precision within the same execution times. }}
+
+\sout{Since FMA can reduce the number of floating-point operations, we assume to use FMA.  }
+%For vector addition and scalar multiplication of vector, the operational intensities are low and the performance is not increased. Operational intensity of inner product is higher than these two vector operations and the performance levels become almost the upper bound of roofline model.
+{\color{mid}{\sout{For matrix-vector multiplication and matrix multiplication, there is some way to use AVX2 and OpenMP. }}}
+
+\sout{For using AVX2, when loading, computing, and storing is executed with four pack of double precision numbers, the performance is increased. }
+
+\sout{To execute AVX2 loading, computing, and storing instructions, we should avoid synchronization and avoid using four scalar loading instruction.}
+{\color{mid}{\sout{For AVX2, using vector loading instruction was the key for performance.}}} 
+
+\sout{For using OpenMP, we should avoid synchronization and avoid disturbing unit stride memory references.}
+{\color{mid}{\sout{For OpenMP, performance is depending on the combinations of the order of index and the loop to parallelize.}}}
+\sout{DD matrix-vector multiplcation and matrix multiplication can be implemented in these way. }
+
+
+%The performance levels of matrix-vector multiplcation become almost the upper bound of roofline model. That of matrix multiplication is lower, i.e. 60\%. 
+\sout{The innermost structures of inner products, matrix-vector multiplication, and matrix multiplication are the one multiply-and-add. MuPAT on Scilab is implemented these three operations into one as matrix multiplication routine. Since the way of implementation to increase the performance for these three operations are different, MuPAT on MATLAB is implemented as three different routines. There is the trade-off between high performance program and general purpose program.}
+
+{\color{mid}{\sout{The inner products, matrix-vector multiplication, and matrix multiplication require the one multiply-and-add operation.
+MuPAT on Scilab is implemented these three operations as one matrix multiplication routine. 
+Since the way of implementation to increase the performance for these three operations are different as discribed in the paper, 
+MuPAT on MATLAB is implemented as different routines. }}}
+%For matrix-vector multiplication and vector operations, the operational intensities are not enough to speed up theoretically when using AVX2 and OpenMP. 
+
+{\color{mid}{\sout{The effectiveness of AVX2 and OpenMP is depending on the operational intensity. }}}
+\sout{Although the performance become almost the upper bound, it does not mean that the execution time is reduced theoretically. Reducing the number of memory references and increasing the number of floating-point operations let the operational intensity become high. For DD arithmetic, using large routines such as axpy and using IEEE-style can increase the operational intensity. As a result, the performance can be increased with almost the same execution time before increasing the operational intensity. }
+
+
+
+\sout{Even the DD arithmetic, matrix and vector operations are bounded on the memory performance except for matrix multiplication. Recent CPUs can hide the computational workload of these operations in DD arithmetic by using FMA, AVX2, and OpenMP. The next problem for some matrix and vector operations in DD arithmetic is the number of memory references. }
+% Even the DD arithmetic, matrix and vector operations are bounded on the memory performance except for matrix multiplication. Recent CPUs can hide the computational workload of these operations in DD arithmetic by using FMA, AVX2, and OpenMP. The next problem for some matrix and vector operations in DD arithmetic is the number of memory references. 
+
+
+
+\end{document}

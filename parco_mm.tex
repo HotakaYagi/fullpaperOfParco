@@ -1,0 +1,103 @@
+\documentclass{IOS-Book-Article}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{amsfonts}
+\usepackage{mathptmx}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{ulem}
+\usepackage{setspace}
+\usepackage{mathptmx}
+\usepackage{listings}
+\usepackage[dvipdfmx]{color}
+\pagestyle{empty} 
+\def\hb{\hbox to 10.7 cm{}}
+\usepackage{here}
+\usepackage{fancybox,ascmac}
+\definecolor{mid}{rgb}{ .115, .66, .45}
+
+\begin{document}
+\pagestyle{plain}
+\begin{center}
+    {\Large Matrix multiplication ver 2, 2019 10/18}
+\end{center}
+%\def\thepage{}
+\section{Experiment for Matrix and Vector Operations in DD Arithmetic}
+\subsection{DD Matrix-Matrix Multiplication }
+
+Matrix multiplication $ C = AB $ is {\color{mid}{written as}} $ c_ {ij} = \sum a_ {ik} b_ {kj} $ {\color{mid}{with three nested loops $i$, $j$, and $k$}}.
+\sout{Loops are nested, and the indexes for loops are $i$, $j$, and $k$.}
+\sout{For the unit stride access in the column major order, the innermost loop of the index must be $i$.}
+{\color{mid}{As we have seen at the section of the matrix-vector multiplication, the unit stride access is essential to achieve high performance. If the most inner loop is processed by $k$ or $j$, the unit stride access cannot be performed in MATLAB. The index of the most inner loop for matrix multiplication must be $i$, so there are two patterns of implementation as MP and PDOT.}}
+
+\begin{figure}[htbp]
+    \begin{center}
+      \includegraphics[clip,width=10cm]{20191018.eps}
+           \caption{The algorithms of $j$-$k$-$i$ order and $k$-$j$-$i$ order for $C = AB$.}
+      \label{mmal}
+    \end{center}
+  \end{figure}
+  
+  {\color{mid}{AXV2 is easily applied to the loop in both of algorithms in Figure \ref{mmal}. In order to use AVX2 computing, loading, and storing instructions, the loop of index $i$ should be processed as vector, and its performance will become almost four times.
+  The most inner loop is parallelized by AVX2. One of the rest of two loops will be parallelized by putting the OpenMP pragma directives above the loop to parallelize as in Figure \ref{mmal1}.}}
+
+  \begin{figure}[htbp]
+    \begin{center}
+      \includegraphics[clip,width=10cm]{20191018m.eps}
+           \caption{The way to use OpenMP for $C = AB$.}
+      \label{mmal1}
+    \end{center}
+  \end{figure}
+
+  {\color{mid}{MP$_{\rm{MP}}$ and PDOT$_{\rm{PB}}$ are easy to use OpenMP, but MP$_{\rm{PB}}$ and PDOT$_{\rm{PDOT}}$ requires gathering the data from each thread and summing up partial sums. There are two ways to use OpenMP, block scheduling or cyclic scheduling.
+  
+Since the operational intensity for matrix multiplication is so high as 18$N^3/(3N^2\times 16) = O(N)$, the upper bound of performance for matrix multiplication increases 16 times when using AVX2 and OpenMP.}}  
+
+\sout{When using AVX2 for the loop with index $k$, the elements of the SIMD register must be summed, and when using AVX2 for the loop with index $j$, the AVX2 load and store instructions cannot be used at all.
+Since the indexes that use to store $C$ are $i$ and $j$, in order to parallelize the loop with index $k$ by OpenMP, it is necessary to sum the partial sums of each thread.}
+
+\begin{table}[htbp]
+    \centering
+    \caption{The performances [Gflops/sec] for matrix multiplication.{\color{mid}{(足りないデータは取る)}}}
+    \label{tab:my-table}
+    \footnotesize	
+    \begin{tabular}{l||c|r|r|r|r|r|r}
+        \hline
+             & Overhead & \multicolumn{1}{c|}{Before} & \multicolumn{1}{c|}{AVX2} & \multicolumn{1}{c|}{OpenMP} & \multicolumn{1}{c|}{\begin{tabular}[c]{@{}c@{}}OpenMP\\ cyclic\end{tabular}} & \multicolumn{1}{c|}{\begin{tabular}[c]{@{}c@{}}AVX2\&\\ OpenMP\end{tabular}} & \multicolumn{1}{c}{\begin{tabular}[c]{@{}c@{}}AVX2\&\\ OpenMP\\ cyclic\end{tabular}} \\ \hline
+    MP       &          & 3.60                       & 13.73                    &                            &                                                                             &                                                                             &                                                                                      \\ \hline
+    PDOT     &          & 3.67                       & 12.25                    &                            &                                                                             &                                                                             &                                                                                      \\ \hline
+    MP$_{\rm{MP}}$     &          &                            &                          & 12.69                      &                                                                             & 44.93                                                                       &                                                                                      \\ \hline
+    MP$_{\rm{PB}}$     & sum      &                            &                          & 11.97                      &                                                                             & 29.06                                                                       &                                                                                      \\ \hline
+    PDOT$_{\rm{PDOT}}$& sum      &                            &                          & 6.87                       &                                                                             & 7.93                                                                        &                                                                                      \\ \hline
+    PDOT$_{\rm{PB}}$   &          &                            &                          & 12.25                      &                                                                             & 37.31                                                                       &                                                                              \\ \hline       
+    \end{tabular}
+    \end{table}
+
+\sout{Also, data cannot be gathered from other threads into the SIMD register.
+Therefore, as shown in the Figure \ref{figMM3}, we consider the case where AVX2 is used for the loop of index $i$ and OpenMP is used for the loop of index $j$.}
+
+\begin{figure}[htbp]
+    \begin{center}
+      \includegraphics[clip,width=10cm]{20191017mm.eps}
+           \caption{Performances [Gflops/sec] using AVX2 and OpenMP (block) for MP and PDOT as MP$_{\rm{MP}}$ and PDOT$_{\rm{PB}}$ for $C = AB$. {\color{mid}{凡例直す。図はこれで良いのか？}}}
+      \label{figMM3}
+    \end{center}
+  \end{figure}
+  
+\sout{When AVX2 is used for the loop with index $i$, AVX2 load instruction can be used for loads or stores of $A$ and $C$, and multiply-add arithmetic can also be computed with AVX2, so the performance is almost 12 Gflops/sec with $N$ = 2,500. There is little difference in the performance of the order of indexes in $j$-$k$-$i$ and $k$-$j$-$i$ loops. Also, we confirm that there is little difference in the scheduling type for block or cyclic, both of them are almost 12 Gflops/sec. }
+
+{\color{mid}{When using AVX2 for the most inner loop, $vmuladd$, $vload$, and $vstore$ can be used, so the performance is higher almost four times than without parallelization for both MP and PDOT.}}
+
+\sout{When using AVX2 and OpenMP, the performance of the $j$-$k$-$i$ loop order is high. This is because when the loop with index $j$ is parallelized, the outer loop is parallelized.}
+
+{\color{mid}{The performance for MP$_{\rm{MP}}$ and PDOT$_{\rm{PB}}$ are higher abount four times than without parallelization, but that for PDOT$_{\rm{PDOT}}$ is low due to summing-up overhead. Even if MP$_{\rm{PB}}$ has summing-up overhead, the performance is not degreade seriously.(block cyclicは追記)}}
+
+\sout{When using AVX2 and OpenMP in the $j$-$k$-$i$ order of the index, the performance was almost 12.5 times (44.93/3.60) better than without parallelization with $N$ = 2,500.
+Since the matrix multiplication has a large operational intensity of $ O (N) $, the upper bound of performance in the roofline model has been increased 16 times, and the performance has improved to nearly 16 times (AVX2 $\times$ 4-core). At that time, the performance is 48\% (44.93/92.8) of the upper bound.}
+
+{\color{mid}{For using AVX2 and OpenMP, when summing-up overhead is required as PDOT$_{\rm{PDOT}}$ and MP$_{\rm{PB}}$, the performance do not increase 16 times. The reason why the performance for MP$_{\rm{MP}}$ is higher than PDOT$_{\rm{PB}}$ is that the MP$_{\rm{MP}}$ parallelize more outer loop, and PDOT$_{\rm{PB}}$ access the data for $c_{ij}$ more widely, so MP$_{\rm{MP}}$ can reuse the data for $c_{ij}$.
+
+The performance for MP$_{\rm{MP}}$ is higher 12.5 times (44.93/3.6) than without parallelization, and it is not too far from 16 times. The upper bound of performance for matrix multiplication becomes 92.8 Gflops/sec and increases 16 times because this operation is being bounded on computatonal performance. As a result, the performance for MP$_{\rm{MP}}$ is 44.93 Gflops/sec, so it is 48\% of the upper bound.}}
+
+\end{document}
